@@ -37,7 +37,9 @@ export const categoryStorage = {
       });
       return { success: true, data: category };
     } catch (err) {
-      return makeError('CATEGORY_CREATE_FAILED', 'Failed to create category.', err);
+      console.error('[categoryStorage.createCategory] Unexpected error:', err);
+      const cause = err instanceof Error ? err.message : String(err);
+      return makeError('CATEGORY_CREATE_FAILED', `Failed to create category. Cause: ${cause}`, err);
     }
   },
 

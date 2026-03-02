@@ -1,44 +1,28 @@
 import type { ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
-// AuthCard — centred container for all auth screens.
+// AuthCard — card container for all auth screens.
+// Full-page centering and background are handled by AuthBackground.
 // ---------------------------------------------------------------------------
 
 type AuthCardProps = {
   readonly children: ReactNode;
+  readonly className?: string;
 };
 
-const LABELS = {
-  BRAND: 'Zentro',
-  TAGLINE: 'Your personal finance, privately.',
-} as const;
-
-export function AuthCard({ children }: AuthCardProps) {
+export function AuthCard({ children, className }: AuthCardProps) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-[400px] rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex flex-col items-center gap-1 border-b border-border px-8 py-6">
-          <AuthWordmark />
-          <p className="text-sm text-muted-foreground">{LABELS.TAGLINE}</p>
-        </div>
-        <div className="px-8 py-6">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// AuthWordmark — inline component used inside AuthCard.
-// Exported separately so it can be used wherever branding is needed.
-// ---------------------------------------------------------------------------
-
-export function AuthWordmark() {
-  return (
-    <span
-      className="select-none text-2xl font-bold tracking-tight text-foreground"
-      aria-label="Zentro"
+    <div
+      className={[
+        'w-full max-w-[440px] bg-card border border-border rounded-xl shadow-md',
+        'p-6 sm:p-8 flex flex-col gap-6',
+        'animate-in fade-in-0 slide-in-from-bottom-4 duration-300',
+        className ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      Zentro
-    </span>
+      {children}
+    </div>
   );
 }

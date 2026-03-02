@@ -1,31 +1,11 @@
 import type { Result, UUID } from '@/shared/types/common.types';
 import type { LocalUser } from '@/shared/types/user.types';
 import { getDB } from './storage.db';
-import { APP_ENCRYPTION_PASSPHRASE, APP_ENCRYPTION_SALT_BASE64 } from './storage.constants';
-import { deriveCryptoKey, encryptData, decryptData } from '@/services/crypto/crypto.service';
-import { base64ToBuffer } from '@/services/crypto/crypto.utils';
+import { encryptData, decryptData } from '@/services/crypto/crypto.service';
+import { getAppEncryptionKey } from '@/services/crypto/app-key';
 
-// ---------------------------------------------------------------------------
-// App-level encryption key (lazy singleton)
-// Protects user records at rest; derived from compile-time constants.
-// ---------------------------------------------------------------------------
-let appKeyPromise: Promise<CryptoKey> | null = null;
-
-function getAppKey(): Promise<CryptoKey> {
-  if (!appKeyPromise) {
-    appKeyPromise = (async () => {
-      const saltBuffer = base64ToBuffer(APP_ENCRYPTION_SALT_BASE64);
-      const salt = new Uint8Array(saltBuffer);
-      const result = await deriveCryptoKey(APP_ENCRYPTION_PASSPHRASE, salt);
-      if (!result.success) {
-        appKeyPromise = null;
-        throw new Error(result.error.message);
-      }
-      return result.data;
-    })();
-  }
-  return appKeyPromise;
-}
+// Alias for clarity — same key, centralised in app-key.ts
+const getAppKey = getAppEncryptionKey;
 
 function makeError(code: string, message: string, cause?: unknown): Result<never> {
   return {

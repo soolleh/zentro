@@ -32,6 +32,7 @@ const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scr
 
 function InactivityWatcher() {
   const refreshActivity = useSessionStore((s) => s.refreshActivity);
+  const lock = useSessionStore((s) => s.lock);
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -43,12 +44,26 @@ function InactivityWatcher() {
       }, 1000);
     };
 
+    // When the tab regains focus, check whether the session already expired
+    // while the user was away. The inactivity timer pauses when a tab is hidden
+    // on some browsers, so we verify expiry on visibility restore.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      const { sessionExpiresAt, isAuthenticated, isLocked } = useSessionStore.getState();
+      if (!isAuthenticated || isLocked || !sessionExpiresAt) return;
+      if (Date.now() >= new Date(sessionExpiresAt).getTime()) {
+        lock();
+      }
+    };
+
     ACTIVITY_EVENTS.forEach((event) => { window.addEventListener(event, handleActivity, { passive: true }); });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       ACTIVITY_EVENTS.forEach((event) => { window.removeEventListener(event, handleActivity); });
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (throttleRef.current !== null) clearTimeout(throttleRef.current);
     };
-  }, [refreshActivity]);
+  }, [refreshActivity, lock]);
 
   return null;
 }

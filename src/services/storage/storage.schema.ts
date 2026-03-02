@@ -82,6 +82,16 @@ export type NotificationLogRecord = {
   createdAt: string;
 } & SerializedEncryptedPayload;
 
+/**
+ * Biometric credential record. The credentialId is the key path.
+ * userId is stored plaintext for indexed lookup.
+ * The full BiometricCredential is encrypted inside `data`.
+ */
+export type BiometricCredentialRecord = {
+  credentialId: string;
+  userId: string;
+} & SerializedEncryptedPayload;
+
 export interface ZentroDBSchema extends DBSchema {
   users: {
     key: string;
@@ -154,5 +164,10 @@ export interface ZentroDBSchema extends DBSchema {
     key: string;
     value: NotificationLogRecord;
     indexes: { userId: string; type: string; createdAt: string };
+  };
+  biometric_credentials: {
+    key: string;
+    value: BiometricCredentialRecord;
+    indexes: { userId: string };
   };
 }

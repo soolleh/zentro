@@ -82,7 +82,7 @@ export function AppLayout() {
               onClick={lock}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               aria-label="Lock session"
-              title="Lock"
+              title="Lock session"
             >
               <Lock className="h-4 w-4" aria-hidden />
             </button>

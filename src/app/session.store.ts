@@ -9,4 +9,5 @@ export {
   useDerivedKey,
   useCurrentUser,
   useSession,
+  useInactivityTimeoutMinutes,
 } from '@/app/stores/session.store';

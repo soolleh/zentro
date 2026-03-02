@@ -43,7 +43,14 @@ export const settingsStorage = {
       await db.put('user_settings', { id: settings.userId, data: encrypted.data.data });
       return { success: true, data: settings };
     } catch (err) {
-      return makeError('SETTINGS_WRITE_FAILED', 'Failed to save user settings.', err);
+      // Log the real error so it's visible in the browser console during development.
+      console.error('[settingsStorage.upsertSettings] Unexpected error:', err);
+      const cause = err instanceof Error ? err.message : String(err);
+      return makeError(
+        'SETTINGS_WRITE_FAILED',
+        `Failed to save user settings. Cause: ${cause}`,
+        err
+      );
     }
   },
 };

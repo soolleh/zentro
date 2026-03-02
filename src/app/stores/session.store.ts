@@ -22,19 +22,43 @@ type SessionActions = {
   lock: () => void;
   unlock: (key: CryptoKey) => void;
   logout: () => void;
-  /**
-   * Extends the session expiry on user activity.
-   * Timer management (setInterval / clearInterval) is handled in providers.tsx
-   * to keep the store free of side-effects.
-   */
+  /** Resets the inactivity countdown on user interaction. No-op when locked. */
   refreshActivity: () => void;
+  /** Updates the inactivity timeout and immediately resets the countdown. */
+  setInactivityTimeout: (minutes: number) => void;
 };
+
+// ---------------------------------------------------------------------------
+// Module-level timer — NOT Zustand state.
+// Using Zustand state for the timer handle would cause unnecessary re-renders
+// and would prevent the timer from being cleared during logout/lock transitions.
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TIMEOUT_MINUTES = 5;
+
+let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearInactivityTimer(): void {
+  if (inactivityTimer !== null) {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = null;
+  }
+}
+
+function startInactivityTimer(minutes: number): void {
+  clearInactivityTimer();
+  if (minutes <= 0) return;
+  inactivityTimer = setTimeout(
+    () => {
+      useSessionStore.getState().lock();
+    },
+    minutes * 60 * 1000
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
-
-const DEFAULT_TIMEOUT_MINUTES = 5;
 
 export const useSessionStore = create<SessionState & SessionActions>((set, get) => ({
   currentUser: null,
@@ -46,6 +70,7 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
   inactivityTimeoutMinutes: DEFAULT_TIMEOUT_MINUTES,
 
   login(user, key, timeoutMinutes) {
+    clearInactivityTimer();
     const ms = timeoutMinutes * 60 * 1000;
     const expiresAt = new Date(Date.now() + ms).toISOString() as ISODateString;
     set({
@@ -57,9 +82,11 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
       sessionExpiresAt: expiresAt,
       inactivityTimeoutMinutes: timeoutMinutes,
     });
+    startInactivityTimer(timeoutMinutes);
   },
 
   lock() {
+    clearInactivityTimer();
     // derivedKey cleared FIRST — no window where it could be read after lock
     set({
       derivedKey: null,
@@ -69,6 +96,7 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
   },
 
   unlock(key) {
+    clearInactivityTimer();
     const { inactivityTimeoutMinutes } = get();
     const ms = inactivityTimeoutMinutes * 60 * 1000;
     const expiresAt = new Date(Date.now() + ms).toISOString() as ISODateString;
@@ -78,9 +106,11 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
       lockedAt: null,
       sessionExpiresAt: expiresAt,
     });
+    startInactivityTimer(inactivityTimeoutMinutes);
   },
 
   logout() {
+    clearInactivityTimer();
     // derivedKey cleared FIRST
     set({
       derivedKey: null,
@@ -96,23 +126,19 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
   refreshActivity() {
     const { inactivityTimeoutMinutes, isAuthenticated, isLocked } = get();
     if (!isAuthenticated || isLocked) return;
+    clearInactivityTimer();
     const ms = inactivityTimeoutMinutes * 60 * 1000;
     const expiresAt = new Date(Date.now() + ms).toISOString() as ISODateString;
     set({ sessionExpiresAt: expiresAt });
+    startInactivityTimer(inactivityTimeoutMinutes);
+  },
+
+  setInactivityTimeout(minutes) {
+    set({ inactivityTimeoutMinutes: minutes });
+    // Reset the running countdown with the new duration
+    get().refreshActivity();
   },
 }));
-
-// ---------------------------------------------------------------------------
-// Auto-lock subscription
-// Purges the derived key when sessionExpiresAt is crossed.
-// ---------------------------------------------------------------------------
-useSessionStore.subscribe((state) => {
-  if (!state.isAuthenticated || state.isLocked || !state.sessionExpiresAt) return;
-  const msUntilExpiry = new Date(state.sessionExpiresAt).getTime() - Date.now();
-  if (msUntilExpiry <= 0) {
-    useSessionStore.getState().lock();
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Selector hooks (preferred over inline selectors in components)
@@ -125,5 +151,8 @@ export const useIsLocked = (): boolean => useSessionStore((s) => s.isLocked);
 export const useDerivedKey = (): CryptoKey | null => useSessionStore((s) => s.derivedKey);
 
 export const useCurrentUser = (): LocalUser | null => useSessionStore((s) => s.currentUser);
+
+export const useInactivityTimeoutMinutes = (): number =>
+  useSessionStore((s) => s.inactivityTimeoutMinutes);
 
 export const useSession = (): SessionState & SessionActions => useSessionStore((s) => s);
