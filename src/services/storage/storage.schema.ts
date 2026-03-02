@@ -1,0 +1,158 @@
+import type { SerializedEncryptedPayload } from '@/services/crypto/crypto.types';
+import type { DBSchema } from 'idb';
+
+/**
+ * All records in stores that contain financial data are stored as encrypted payloads.
+ * The `id` field is always plaintext (used as the IndexedDB key).
+ * The `data` field is the SerializedEncryptedPayload blob.
+ * Index fields (e.g. userId, date) are stored in plaintext for query capability.
+ */
+
+export type EncryptedRecord = {
+  id: string;
+} & SerializedEncryptedPayload;
+
+export type UserRecord = {
+  id: string;
+  emailHash: string;
+} & SerializedEncryptedPayload;
+
+export type AccountRecord = {
+  id: string;
+  userId: string;
+  type: string;
+} & SerializedEncryptedPayload;
+
+export type TransactionRecord = {
+  id: string;
+  userId: string;
+  accountId: string;
+  date: string;
+  categoryId: string;
+  type: string;
+  recurringRuleId?: string;
+} & SerializedEncryptedPayload;
+
+export type CategoryRecord = {
+  id: string;
+  userId: string;
+  isSystem: number; // 1 = true, 0 = false (IDB index limitation)
+} & SerializedEncryptedPayload;
+
+export type BudgetRecord = {
+  id: string;
+  userId: string;
+  categoryId: string;
+  cycleStart: string;
+} & SerializedEncryptedPayload;
+
+export type GoalRecord = {
+  id: string;
+  userId: string;
+} & SerializedEncryptedPayload;
+
+export type GoalContributionRecord = {
+  id: string;
+  goalId: string;
+  fromAccountId: string;
+} & SerializedEncryptedPayload;
+
+export type BillRecord = {
+  id: string;
+  userId: string;
+} & SerializedEncryptedPayload;
+
+export type BillEntryRecord = {
+  id: string;
+  billId: string;
+  dueDate: string;
+  status: string;
+} & SerializedEncryptedPayload;
+
+export type ExchangeRateRecord = {
+  id: string;
+  fromCurrency: string;
+  toCurrency: string;
+} & SerializedEncryptedPayload;
+
+export type NotificationLogRecord = {
+  id: string;
+  userId: string;
+  type: string;
+  createdAt: string;
+} & SerializedEncryptedPayload;
+
+export interface ZentroDBSchema extends DBSchema {
+  users: {
+    key: string;
+    value: UserRecord;
+    indexes: { emailHash: string };
+  };
+  user_settings: {
+    key: string;
+    value: EncryptedRecord;
+    indexes: Record<never, never>;
+  };
+  accounts: {
+    key: string;
+    value: AccountRecord;
+    indexes: { userId: string; type: string };
+  };
+  transactions: {
+    key: string;
+    value: TransactionRecord;
+    indexes: {
+      userId: string;
+      accountId: string;
+      date: string;
+      categoryId: string;
+      type: string;
+      recurringRuleId: string;
+    };
+  };
+  recurring_rules: {
+    key: string;
+    value: EncryptedRecord & { userId: string };
+    indexes: { userId: string };
+  };
+  categories: {
+    key: string;
+    value: CategoryRecord;
+    indexes: { userId: string; isSystem: number };
+  };
+  budgets: {
+    key: string;
+    value: BudgetRecord;
+    indexes: { userId: string; categoryId: string; cycleStart: string };
+  };
+  goals: {
+    key: string;
+    value: GoalRecord;
+    indexes: { userId: string };
+  };
+  goal_contributions: {
+    key: string;
+    value: GoalContributionRecord;
+    indexes: { goalId: string; fromAccountId: string };
+  };
+  bills: {
+    key: string;
+    value: BillRecord;
+    indexes: { userId: string };
+  };
+  bill_entries: {
+    key: string;
+    value: BillEntryRecord;
+    indexes: { billId: string; dueDate: string; status: string };
+  };
+  exchange_rates: {
+    key: string;
+    value: ExchangeRateRecord;
+    indexes: { fromCurrency: string; toCurrency: string };
+  };
+  notification_log: {
+    key: string;
+    value: NotificationLogRecord;
+    indexes: { userId: string; type: string; createdAt: string };
+  };
+}

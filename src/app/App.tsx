@@ -1,5 +1,8 @@
+import { Providers } from '@/app/providers';
+
 function App() {
-  return <div>Zentro</div>
+  return <Providers />;
 }
 
-export default App
+export default App;
+
