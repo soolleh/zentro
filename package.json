@@ -7,10 +7,20 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
+    "@use-gesture/react": "^10.3.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "idb": "^8.0.3",
@@ -22,6 +32,7 @@
     "react-router-dom": "^7.13.1",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.5.0",
+    "tailwindcss-animate": "^1.0.7",
     "workbox-window": "^7.4.0",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
