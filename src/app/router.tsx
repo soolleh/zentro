@@ -1,10 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { ROUTES } from '@/app/routes.constants';
 import { ProtectedRoute } from '@/app/ProtectedRoute';
 import { AppLayout } from '@/app/AppLayout';
 import { NotFoundPage } from '@/app/NotFoundPage';
 import { LoadingSpinner } from '@/app/LoadingSpinner';
+import { RootRedirect } from '@/app/RootRedirect';
 
 // --- Lazy page imports ---
 const LoginPage = lazy(() =>
@@ -82,6 +83,12 @@ function withSuspense(Component: React.ComponentType) {
 }
 
 export const router = createBrowserRouter([
+  // Root — smart redirect based on auth state
+  {
+    path: ROUTES.ROOT,
+    element: <RootRedirect />,
+  },
+
   // Public routes
   {
     path: ROUTES.LOGIN,
@@ -103,10 +110,6 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          {
-            path: ROUTES.ROOT,
-            element: <Navigate to={ROUTES.DASHBOARD} replace />,
-          },
           {
             path: ROUTES.DASHBOARD,
             element: withSuspense(DashboardPage),
