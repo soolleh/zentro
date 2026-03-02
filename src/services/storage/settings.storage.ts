@@ -37,6 +37,12 @@ export const settingsStorage = {
    */
   async upsertSettings(settings: UserSettings, key: CryptoKey): Promise<Result<UserSettings>> {
     try {
+      if (!settings.userId) {
+        return makeError(
+          'SETTINGS_MISSING_USER_ID',
+          'Cannot save settings: userId is missing. This is a bug — please report it.'
+        );
+      }
       const encrypted = await encryptData(key, settings);
       if (!encrypted.success) return encrypted;
       const db = await getDB();

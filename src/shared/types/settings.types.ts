@@ -11,6 +11,7 @@ export type UserSettings = {
   readonly dateFormat: DateFormat;
   readonly baseCurrency: Currency;
   readonly defaultAlertThreshold: number;
+  readonly budgetCycleStartDay: number;
   readonly notificationPreferences: readonly NotificationPreference[];
   readonly inactivityTimeoutMinutes: number;
   readonly updatedAt: ISODateString;

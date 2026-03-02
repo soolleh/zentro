@@ -11,6 +11,7 @@ import { UserAvatar } from '../components/UserAvatar';
 import { PasswordInput } from '../components/PasswordInput';
 import { FormError } from '../components/FormError';
 import { loginUser } from '@/services/auth/auth.service';
+import { buildDefaultSettings } from '@/services/auth/auth.constants';
 import { userStorage } from '@/services/storage/user.storage';
 import { settingsStorage } from '@/services/storage/settings.storage';
 import { useSessionStore } from '@/app/stores/session.store';
@@ -96,12 +97,18 @@ export function LoginPage() {
       ? settingsResult.data.inactivityTimeoutMinutes
       : 5;
 
+    storeLogin(user, derivedKey, timeoutMinutes);
+
     // Hydrate preferences store from settings (best-effort; non-blocking)
     if (settingsResult.success) {
       loadPreferences(settingsResult.data);
+    } else if (settingsResult.error.code === 'SETTINGS_NOT_FOUND') {
+      // Settings record missing (e.g. after DB schema migration) — create defaults
+      const now = new Date().toISOString() as Parameters<typeof buildDefaultSettings>[1];
+      const defaults = buildDefaultSettings(user.id, now);
+      void settingsStorage.upsertSettings(defaults, derivedKey);
     }
 
-    storeLogin(user, derivedKey, timeoutMinutes);
     void navigate(ROUTES.DASHBOARD);
   }
 

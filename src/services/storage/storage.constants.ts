@@ -1,5 +1,5 @@
 export const DB_NAME = 'zentro-db';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 /**
  * Application-level encryption for user records (passwordHash, webAuthnCredentialId).

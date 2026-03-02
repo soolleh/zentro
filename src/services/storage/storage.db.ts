@@ -94,6 +94,15 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
         // unique: true — one credential per user
         bioStore.createIndex('userId', 'userId', { unique: true });
       }
+      // -----------------------------------------------------------------------
+      // V3 → fix user_settings keyPath (was 'userId' in older dev builds; must be 'id')
+      // -----------------------------------------------------------------------
+      if (oldVersion < 3) {
+        if (db.objectStoreNames.contains('user_settings')) {
+          db.deleteObjectStore('user_settings');
+        }
+        db.createObjectStore('user_settings', { keyPath: 'id' });
+      }
     },
   });
 

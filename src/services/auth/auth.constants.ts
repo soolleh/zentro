@@ -23,6 +23,7 @@ export function buildDefaultSettings(userId: UUID, now: ISODateString): UserSett
     dateFormat: 'DD/MM/YYYY',
     baseCurrency: 'USD' as Currency,
     defaultAlertThreshold: 80,
+    budgetCycleStartDay: 1,
     notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
     inactivityTimeoutMinutes: 5,
     updatedAt: now,
