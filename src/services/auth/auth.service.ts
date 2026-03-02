@@ -270,7 +270,7 @@ export async function unlockWithPassword(
  */
 export async function deriveExtractableCryptoKey(
   password: string,
-  salt: Uint8Array
+  salt: Uint8Array<ArrayBuffer>
 ): Promise<Result<CryptoKey>> {
   try {
     const encoder = new TextEncoder();

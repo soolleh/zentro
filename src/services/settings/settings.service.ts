@@ -35,13 +35,17 @@ async function gatherUserData(userId: UUID, derivedKey: CryptoKey) {
   const [settingsResult, categoriesResult, transactionsResult] = await Promise.all([
     settingsStorage.getSettingsByUser(userId, derivedKey),
     categoryStorage.listCategoriesByUser(userId, derivedKey),
-    transactionStorage.listTransactionsByUser(userId),
+    transactionStorage.listTransactionsByUser(
+      userId,
+      { userId, limit: 999999, sortBy: 'date', sortOrder: 'desc' },
+      derivedKey
+    ),
   ]);
 
   return {
     settings: settingsResult.success ? settingsResult.data : null,
     categories: categoriesResult.success ? categoriesResult.data : [],
-    transactions: transactionsResult.success ? transactionsResult.data : [],
+    transactions: transactionsResult.success ? transactionsResult.data.transactions : [],
   };
 }
 
@@ -73,10 +77,14 @@ function transactionToCSVRow(tx: Transaction): string {
 
 export async function exportTransactionsCSV(
   userId: UUID,
-  _derivedKey: CryptoKey
+  derivedKey: CryptoKey
 ): Promise<Result<Blob>> {
   try {
-    const result = await transactionStorage.listTransactionsByUser(userId);
+    const result = await transactionStorage.listTransactionsByUser(
+      userId,
+      { userId, limit: 999999, sortBy: 'date', sortOrder: 'desc' },
+      derivedKey
+    );
 
     if (!result.success) {
       if (result.error.code === 'NOT_IMPLEMENTED') {
@@ -89,7 +97,7 @@ export async function exportTransactionsCSV(
       return makeError('CSV_EXPORT_FAILED', result.error.message);
     }
 
-    const rows = result.data.map(transactionToCSVRow).join('\n');
+    const rows = result.data.transactions.map(transactionToCSVRow).join('\n');
     const csv = CSV_HEADERS + rows;
 
     return {
@@ -257,7 +265,7 @@ export async function importEncryptedBackup(
  * Import a plain-JSON backup (no decryption required).
  */
 export async function importPlainJSON(
-  userId: UUID,
+  _userId: UUID,
   derivedKey: CryptoKey,
   file: File
 ): Promise<Result<void>> {

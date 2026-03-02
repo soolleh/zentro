@@ -109,7 +109,6 @@ type NotificationRowProps = {
 function NotificationRow({
   pref,
   onToggle,
-  _icon,
   label,
   description,
   children,

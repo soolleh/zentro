@@ -5,6 +5,7 @@ import { useUIStore } from '@/app/ui.store';
 import { useSessionStore } from '@/app/session.store';
 import type { Toast } from '@/app/ui.store';
 import { router } from '@/app/router';
+import { generateRecurringTransactions } from '@/services/transactions/transaction.service';
 
 // --- Theme Initializer ---
 function ThemeInitializer() {
@@ -118,12 +119,34 @@ function ToastRenderer() {
   );
 }
 
+// --- Recurring Transaction Initializer ---
+function RecurringTransactionInitializer() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isLocked = useSessionStore((s) => s.isLocked);
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const derivedKey = useSessionStore((s) => s.derivedKey);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocked || !currentUser || !derivedKey) {
+      hasRun.current = false;
+      return;
+    }
+    if (hasRun.current) return;
+    hasRun.current = true;
+    void generateRecurringTransactions(currentUser.id, derivedKey);
+  }, [isAuthenticated, isLocked, currentUser, derivedKey]);
+
+  return null;
+}
+
 // --- App Providers ---
 export function Providers() {
   return (
     <ErrorBoundary>
       <ThemeInitializer />
       <InactivityWatcher />
+      <RecurringTransactionInitializer />
       <RouterProvider router={router} />
       <ToastRenderer />
     </ErrorBoundary>
