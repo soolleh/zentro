@@ -72,7 +72,7 @@ export function FilterBar({ filters, onFiltersChange, onClearFilters }: FilterBa
   useEffect(() => {
     if (!currentUser || !derivedKey) return;
     const uid = currentUser.id;
-    void accountStorage.listAccountsByUser(uid).then((r) => {
+    void accountStorage.listAccountsByUser(uid, derivedKey).then((r) => {
       if (r.success) setAccounts(r.data);
     });
     void categoryStorage.listCategoriesByUser(uid, derivedKey).then((r) => {

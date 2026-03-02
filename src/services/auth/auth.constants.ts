@@ -27,6 +27,7 @@ export function buildDefaultSettings(userId: UUID, now: ISODateString): UserSett
     notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
     inactivityTimeoutMinutes: 5,
     updatedAt: now,
+    onboardingCompletedAt: null,
   };
 }
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import type { Currency } from '@/shared/types/common.types';
+import type { Currency, ISODateString } from '@/shared/types/common.types';
 import type { NotificationPreference } from '@/shared/types/notification.types';
 import type { UserSettings, DateFormat, Theme } from '@/shared/types/settings.types';
 import { settingsStorage } from '@/services/storage/settings.storage';
@@ -26,6 +26,10 @@ function makeUpdatedSettings(
     budgetCycleStartDay: patch.budgetCycleStartDay ?? current.budgetCycleStartDay,
     notificationPreferences: patch.notificationPreferences ?? current.notificationPreferences,
     inactivityTimeoutMinutes: patch.inactivityTimeoutMinutes ?? current.inactivityTimeoutMinutes,
+    onboardingCompletedAt:
+      patch.onboardingCompletedAt !== undefined
+        ? patch.onboardingCompletedAt
+        : current.onboardingCompletedAt,
     updatedAt: new Date().toISOString() as UserSettings['updatedAt'],
   };
 }
@@ -57,6 +61,7 @@ type PreferencesState = {
   readonly budgetCycleStartDay: number;
   readonly inactivityTimeoutMinutes: number;
   readonly notificationPreferences: readonly NotificationPreference[];
+  readonly onboardingCompletedAt: ISODateString | null;
   readonly isLoaded: boolean;
 };
 
@@ -81,6 +86,7 @@ const DEFAULTS: PreferencesState = {
   budgetCycleStartDay: 1,
   inactivityTimeoutMinutes: 5,
   notificationPreferences: [],
+  onboardingCompletedAt: null,
   isLoaded: false,
 };
 
@@ -98,6 +104,7 @@ export const usePreferencesStore = create<PreferencesState & PreferencesActions>
       budgetCycleStartDay: (settings.budgetCycleStartDay as number | undefined) ?? 1,
       inactivityTimeoutMinutes: settings.inactivityTimeoutMinutes,
       notificationPreferences: settings.notificationPreferences,
+      onboardingCompletedAt: settings.onboardingCompletedAt ?? null,
       isLoaded: true,
     });
   },

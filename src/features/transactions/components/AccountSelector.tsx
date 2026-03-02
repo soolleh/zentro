@@ -38,7 +38,7 @@ export function AccountSelector({
 
   useEffect(() => {
     if (!currentUser || !derivedKey) return;
-    void accountStorage.listAccountsByUser(currentUser.id).then((result) => {
+    void accountStorage.listAccountsByUser(currentUser.id, derivedKey).then((result) => {
       if (result.success) setAccounts(result.data);
     });
   }, [currentUser, derivedKey]);

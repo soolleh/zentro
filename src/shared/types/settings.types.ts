@@ -15,4 +15,5 @@ export type UserSettings = {
   readonly notificationPreferences: readonly NotificationPreference[];
   readonly inactivityTimeoutMinutes: number;
   readonly updatedAt: ISODateString;
+  readonly onboardingCompletedAt: ISODateString | null;
 };

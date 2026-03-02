@@ -6,6 +6,7 @@ import { AppLayout } from '@/app/AppLayout';
 import { NotFoundPage } from '@/app/NotFoundPage';
 import { LoadingSpinner } from '@/app/LoadingSpinner';
 import { RootRedirect } from '@/app/RootRedirect';
+import { OnboardingGuard } from '@/features/onboarding/components/OnboardingGuard';
 
 // --- Lazy page imports ---
 const LoginPage = lazy(() =>
@@ -98,15 +99,22 @@ export const router = createBrowserRouter([
     path: ROUTES.REGISTER,
     element: withSuspense(RegisterPage),
   },
-  {
-    path: ROUTES.ONBOARDING,
-    element: withSuspense(OnboardingPage),
-  },
 
-  // Protected routes
+  // Protected routes — all require authentication
   {
     element: <ProtectedRoute />,
     children: [
+      // Onboarding — guarded by OnboardingGuard (redirects to /dashboard if already done)
+      {
+        element: <OnboardingGuard />,
+        children: [
+          {
+            path: ROUTES.ONBOARDING,
+            element: withSuspense(OnboardingPage),
+          },
+        ],
+      },
+      // Main app — inside AppLayout
       {
         element: <AppLayout />,
         children: [
