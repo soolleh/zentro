@@ -1,5 +1,28 @@
 import type { UUID, ISODateString, Currency } from './common.types';
 
+// ---------------------------------------------------------------------------
+// Derived / computed types
+// ---------------------------------------------------------------------------
+
+export type BalanceHistoryPoint = {
+  readonly date: ISODateString; // first day of each month
+  readonly balance: number;
+};
+
+export type AccountWithBalance = {
+  readonly account: Account;
+  readonly currentBalance: number;
+  readonly isAsset: boolean;
+  readonly isLiability: boolean;
+};
+
+export type NetWorthSummary = {
+  readonly totalAssets: number;
+  readonly totalLiabilities: number;
+  readonly netWorth: number;
+  readonly currency: Currency;
+};
+
 export type AccountType =
   | 'Cash'
   | 'Bank'
