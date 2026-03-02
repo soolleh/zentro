@@ -6,6 +6,7 @@ import { useSessionStore } from '@/app/session.store';
 import type { Toast } from '@/app/ui.store';
 import { router } from '@/app/router';
 import { generateRecurringTransactions } from '@/services/transactions/transaction.service';
+import { useDashboardStore } from '@/app/stores/dashboard.store';
 
 // --- Theme Initializer ---
 function ThemeInitializer() {
@@ -140,6 +141,32 @@ function RecurringTransactionInitializer() {
   return null;
 }
 
+// --- Dashboard Initializer ---
+function DashboardInitializer() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isLocked = useSessionStore((s) => s.isLocked);
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const loadDashboard = useDashboardStore((s) => s.loadDashboard);
+  const loadInsights = useDashboardStore((s) => s.loadInsights);
+  const resetDashboard = useDashboardStore((s) => s.reset);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocked || !currentUser) {
+      hasRun.current = false;
+      resetDashboard();
+      return;
+    }
+    if (hasRun.current) return;
+    hasRun.current = true;
+    void loadDashboard(currentUser.id).then(() => {
+      void loadInsights(currentUser.id);
+    });
+  }, [isAuthenticated, isLocked, currentUser, loadDashboard, loadInsights, resetDashboard]);
+
+  return null;
+}
+
 // --- App Providers ---
 export function Providers() {
   return (
@@ -147,6 +174,7 @@ export function Providers() {
       <ThemeInitializer />
       <InactivityWatcher />
       <RecurringTransactionInitializer />
+      <DashboardInitializer />
       <RouterProvider router={router} />
       <ToastRenderer />
     </ErrorBoundary>

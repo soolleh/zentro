@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Settings,
   Lock,
+  Plus,
 } from 'lucide-react';
 import { ROUTES } from '@/app/routes.constants';
 import { useSessionStore } from '@/app/session.store';
@@ -25,12 +26,18 @@ const NAV_ITEMS = [
   { label: 'Settings', to: ROUTES.SETTINGS, icon: Settings },
 ] as const;
 
+// Auth/onboarding routes where the + button should NOT appear
+const HIDDEN_ROUTES = ['/login', '/register', '/onboarding'];
+
 export function AppLayout() {
   const lock = useSessionStore((s) => s.lock);
   const currentUser = useSessionStore((s) => s.currentUser);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const displayInitial = currentUser?.displayName.charAt(0).toUpperCase() ?? 'Z';
+  const showPlusButton = !HIDDEN_ROUTES.some((r) => location.pathname.startsWith(r));
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -71,6 +78,18 @@ export function AppLayout() {
         <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0">
           <span className="text-base font-semibold text-foreground lg:hidden">Zentro</span>
           <div className="flex items-center gap-2 ml-auto">
+            {/* Desktop quick-add button — only on lg+ and non-auth routes */}
+            {showPlusButton && (
+              <button
+                type="button"
+                onClick={() => { void navigate('/transactions/new'); }}
+                className="hidden lg:flex w-8 h-8 rounded-lg border border-border bg-background items-center justify-center hover:bg-muted/60 transition-all duration-150"
+                aria-label="Add transaction"
+                title="Add transaction"
+              >
+                <Plus className="h-4 w-4 text-muted-foreground" aria-hidden />
+              </button>
+            )}
             <div
               className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold"
               aria-label={`User: ${currentUser?.displayName ?? 'Unknown'}`}
