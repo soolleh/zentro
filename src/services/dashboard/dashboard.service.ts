@@ -232,7 +232,7 @@ export async function getBudgetUtilization(
     const now = new Date();
     const cycleStart = toISO(startOfMonth(now.getFullYear(), now.getMonth()));
 
-    const budgetsResult = await budgetStorage.listBudgetsByCycle(userId, cycleStart);
+    const budgetsResult = await budgetStorage.listBudgetsByCycle(userId, cycleStart, key);
     // Graceful degradation for NOT_IMPLEMENTED
     if (!budgetsResult.success) {
       return { success: true, data: [] };
