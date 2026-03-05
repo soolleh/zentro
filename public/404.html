@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Zentro</title>
+    <!--
+      GitHub Pages SPA redirect.
+
+      When GH Pages gets a request for a path it doesn't have a file for (e.g.
+      /zentro/dashboard on a hard-refresh), it serves this 404.html instead of
+      the index.html. This script preserves the full path + search + hash by
+      encoding them into a query string and redirecting to the real root.
+
+      The companion script in index.html decodes and restores the URL via
+      history.replaceState before React Router mounts, so the user lands on
+      the correct route with no visible redirect.
+
+      Technique by Rafael Pedicini: https://github.com/rafgraph/spa-github-pages
+    -->
+    <script>
+      var l = window.location;
+      // segmentsToKeep = 1 because the repo is served at /zentro/
+      // i.e. we keep the first path segment so the redirect goes to /zentro/
+      var segmentsToKeep = 1;
+      var path = l.pathname.slice(1).split('/').slice(segmentsToKeep).join('/');
+      var redirectUrl =
+        l.protocol +
+        '//' +
+        l.hostname +
+        (l.port ? ':' + l.port : '') +
+        l.pathname
+          .split('/')
+          .slice(0, 1 + segmentsToKeep)
+          .join('/') +
+        '/?p=/' +
+        path +
+        (l.search ? '&q=' + l.search.slice(1) : '') +
+        l.hash;
+      l.replace(redirectUrl);
+    </script>
+  </head>
+  <body></body>
+</html>

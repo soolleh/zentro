@@ -22,6 +22,33 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="/zentro/icons/icon-72.png" />
     <link rel="icon" type="image/svg+xml" href="/zentro/icons/icon-source.svg" />
+
+    <!--
+      GitHub Pages SPA path restore.
+      Counterpart to public/404.html. Decodes the ?p= redirect, strips it from
+      the URL, and restores via history.replaceState before React Router boots.
+    -->
+    <script>
+      (function () {
+        var search = window.location.search;
+        if (search.indexOf('?p=/') === 0 || search.indexOf('?p=') === 0) {
+          var decoded = search
+            .slice(1)
+            .split('&')
+            .reduce(function (acc, pair) {
+              var kv = pair.split('=');
+              acc[decodeURIComponent(kv[0])] = decodeURIComponent(kv.slice(1).join('='));
+              return acc;
+            }, {});
+          var url =
+            window.location.pathname.replace(/\/$/, '') +
+            (decoded.p || '') +
+            (decoded.q ? '?' + decoded.q : '') +
+            window.location.hash;
+          window.history.replaceState(null, '', url);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
