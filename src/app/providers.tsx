@@ -211,9 +211,11 @@ function PWAInitializer() {
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
+    // sw.js only exists in the production build — skip registration in dev.
+    if (!import.meta.env.PROD) return;
 
     // Register service worker via workbox-window
-    const wb = new Workbox('/zentro/sw.js', { scope: '/zentro/' });
+    const wb = new Workbox(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL });
 
     // Store reference on window for UpdateBanner usage
     window.__zentroWB = wb;

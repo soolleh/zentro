@@ -10,7 +10,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      injectRegister: 'auto',
+      // null = we register the SW manually in providers.tsx (PWAInitializer).
+      // 'auto' would inject a registerSW.js script tag that 404s in dev mode.
+      injectRegister: null,
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png', 'screenshots/*.png'],
       // Manifest is served as a static file from public/manifest.webmanifest
       manifest: false,
