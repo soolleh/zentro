@@ -16,10 +16,7 @@ function makeError(code: string, message: string, cause?: unknown): Result<never
 }
 
 export const billEntryStorage = {
-  async createBillEntry(
-    entry: Omit<BillEntry, 'id'>,
-    key: CryptoKey
-  ): Promise<Result<BillEntry>> {
+  async createBillEntry(entry: Omit<BillEntry, 'id'>, key: CryptoKey): Promise<Result<BillEntry>> {
     try {
       const full: BillEntry = { ...entry, id: generateUUID() };
       const encrypted = await encryptData(key, full);

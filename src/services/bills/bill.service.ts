@@ -40,17 +40,16 @@ function buildDueDate(year: number, month: number, dueDayOfMonth: number): ISODa
 /** Get today as an ISODateString at start-of-day UTC. */
 function todayISO(): ISODateString {
   const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())).toISOString() as ISODateString;
+  return new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  ).toISOString() as ISODateString;
 }
 
 // ---------------------------------------------------------------------------
 // Bill CRUD
 // ---------------------------------------------------------------------------
 
-export async function createBill(
-  input: CreateBillInput,
-  key: CryptoKey
-): Promise<Result<Bill>> {
+export async function createBill(input: CreateBillInput, key: CryptoKey): Promise<Result<Bill>> {
   const result = await billStorage.createBill(input, key);
   if (!result.success) return result;
   // Eagerly generate upcoming entries for the new bill
@@ -132,10 +131,7 @@ export async function generateEntriesForBill(
   return { success: true, data: created };
 }
 
-export async function generateAllUserEntries(
-  userId: UUID,
-  key: CryptoKey
-): Promise<Result<void>> {
+export async function generateAllUserEntries(userId: UUID, key: CryptoKey): Promise<Result<void>> {
   const billsResult = await billStorage.listBillsByUser(userId, key);
   if (!billsResult.success) return billsResult;
 
@@ -281,10 +277,7 @@ export async function getUpcomingBills(
   return getEnrichedEntriesForRange(userId, today, cutoff, key);
 }
 
-export async function getBillsSummary(
-  userId: UUID,
-  key: CryptoKey
-): Promise<Result<BillsSummary>> {
+export async function getBillsSummary(userId: UUID, key: CryptoKey): Promise<Result<BillsSummary>> {
   const now = new Date();
   const from = format(startOfMonth(now), "yyyy-MM-dd'T'00:00:00.000'Z'") as ISODateString;
   const to = format(endOfMonth(now), "yyyy-MM-dd'T'23:59:59.999'Z'") as ISODateString;

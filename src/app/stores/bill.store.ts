@@ -200,9 +200,7 @@ export const useBillStore = create<BillState & BillActions>((set, get) => ({
       return;
     }
     set((s) => ({
-      entries: s.entries.map((e) =>
-        e.id === entry.id ? { ...result.data, bill: entry.bill } : e
-      ),
+      entries: s.entries.map((e) => (e.id === entry.id ? { ...result.data, bill: entry.bill } : e)),
       isQuickPayOpen: false,
       quickPayEntry: null,
     }));
