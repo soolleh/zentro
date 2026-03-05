@@ -44,7 +44,7 @@ export async function deriveCryptoKey(
       },
       keyMaterial,
       { name: ALGORITHM_AES_GCM, length: AES_KEY_LENGTH },
-      false,
+      true, // extractable — needed for sessionStorage refresh-persist
       ['encrypt', 'decrypt']
     );
     return { success: true, data: key };

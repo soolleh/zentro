@@ -1,6 +1,55 @@
 import { create } from 'zustand';
 import type { LocalUser } from '@/shared/types/user.types';
 import type { ISODateString } from '@/shared/types/common.types';
+import { bufferToBase64, base64ToBuffer } from '@/services/crypto/crypto.utils';
+
+// ---------------------------------------------------------------------------
+// Session token — persisted in sessionStorage (cleared on tab close)
+// Allows silent session restore across page refreshes within the same tab.
+// ---------------------------------------------------------------------------
+
+const SESSION_TOKEN_KEY = 'zentro_session_token';
+
+type SessionToken = {
+  userId: string;
+  rawKey: string; // base64-encoded exported AES-GCM key bytes
+  inactivityTimeoutMinutes: number;
+};
+
+export function clearSessionToken(): void {
+  try { sessionStorage.removeItem(SESSION_TOKEN_KEY); } catch { /* noop */ }
+}
+
+async function saveSessionToken(
+  userId: string,
+  key: CryptoKey,
+  minutes: number
+): Promise<void> {
+  try {
+    const raw = await crypto.subtle.exportKey('raw', key);
+    const token: SessionToken = { userId, rawKey: bufferToBase64(raw), inactivityTimeoutMinutes: minutes };
+    sessionStorage.setItem(SESSION_TOKEN_KEY, JSON.stringify(token));
+  } catch { /* if export fails, session just won't survive refresh */ }
+}
+
+export async function getSessionToken(): Promise<SessionToken | null> {
+  try {
+    const item = sessionStorage.getItem(SESSION_TOKEN_KEY);
+    if (!item) return null;
+    return JSON.parse(item) as SessionToken;
+  } catch { return null; }
+}
+
+export async function importKeyFromToken(rawKeyBase64: string): Promise<CryptoKey> {
+  const raw = base64ToBuffer(rawKeyBase64);
+  return crypto.subtle.importKey(
+    'raw',
+    raw,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+}
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -19,6 +68,8 @@ type SessionState = {
 
 type SessionActions = {
   login: (user: LocalUser, key: CryptoKey, timeoutMinutes: number) => void;
+  /** Silently restores a session from a sessionStorage token after a page refresh. */
+  restoreSession: (user: LocalUser, key: CryptoKey, timeoutMinutes: number) => void;
   lock: () => void;
   unlock: (key: CryptoKey) => void;
   logout: () => void;
@@ -83,10 +134,30 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
       inactivityTimeoutMinutes: timeoutMinutes,
     });
     startInactivityTimer(timeoutMinutes);
+    void saveSessionToken(user.id, key, timeoutMinutes);
+  },
+
+  restoreSession(user, key, timeoutMinutes) {
+    clearInactivityTimer();
+    const ms = timeoutMinutes * 60 * 1000;
+    const expiresAt = new Date(Date.now() + ms).toISOString() as ISODateString;
+    set({
+      currentUser: user,
+      derivedKey: key,
+      isAuthenticated: true,
+      isLocked: false,
+      lockedAt: null,
+      sessionExpiresAt: expiresAt,
+      inactivityTimeoutMinutes: timeoutMinutes,
+    });
+    startInactivityTimer(timeoutMinutes);
+    // Token is already in sessionStorage — no need to re-save
   },
 
   lock() {
     clearInactivityTimer();
+    // Clear sessionStorage so a refresh after lock requires re-authentication
+    clearSessionToken();
     // derivedKey cleared FIRST — no window where it could be read after lock
     set({
       derivedKey: null,
@@ -97,7 +168,7 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
 
   unlock(key) {
     clearInactivityTimer();
-    const { inactivityTimeoutMinutes } = get();
+    const { inactivityTimeoutMinutes, currentUser } = get();
     const ms = inactivityTimeoutMinutes * 60 * 1000;
     const expiresAt = new Date(Date.now() + ms).toISOString() as ISODateString;
     set({
@@ -107,10 +178,12 @@ export const useSessionStore = create<SessionState & SessionActions>((set, get) 
       sessionExpiresAt: expiresAt,
     });
     startInactivityTimer(inactivityTimeoutMinutes);
+    if (currentUser) void saveSessionToken(currentUser.id, key, inactivityTimeoutMinutes);
   },
 
   logout() {
     clearInactivityTimer();
+    clearSessionToken();
     // derivedKey cleared FIRST
     set({
       derivedKey: null,

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Workbox } from 'workbox-window';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
@@ -14,6 +14,14 @@ import { usePreferencesStore } from '@/app/preferences.store';
 import { writeSWState } from '@/services/storage/sw-state.storage';
 import { registerPeriodicSync } from '@/services/pwa/periodic-sync.service';
 import { checkAndSchedule } from '@/services/notifications/notification.service';
+import {
+  getSessionToken,
+  importKeyFromToken,
+  clearSessionToken,
+} from '@/app/stores/session.store';
+import { userStorage } from '@/services/storage/user.storage';
+import type { UUID } from '@/shared/types/common.types';
+import { LoadingSpinner } from '@/app/LoadingSpinner';
 
 // --- Theme Initializer ---
 function ThemeInitializer() {
@@ -317,21 +325,68 @@ function NotificationInitializer() {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// --- Session Restorer ---
+// Reads the sessionStorage token written on login/unlock and silently
+// restores the Zustand session state before the router mounts.
+// sessionStorage is cleared by the browser on tab close, so this never
+// rehydrates a session from a closed tab.
+// ---------------------------------------------------------------------------
+function SessionRestorer({ onDone }: { onDone: () => void }) {
+  const restoreSession = useSessionStore((s) => s.restoreSession);
+
+  useEffect(() => {
+    async function tryRestore() {
+      const token = await getSessionToken();
+      if (token) {
+        try {
+          const [userResult, key] = await Promise.all([
+            userStorage.getUserById(token.userId as UUID),
+            importKeyFromToken(token.rawKey),
+          ]);
+          if (userResult.success) {
+            restoreSession(userResult.data, key, token.inactivityTimeoutMinutes);
+            onDone();
+            return;
+          }
+        } catch {
+          // Token was invalid or IDB unavailable — clear it and send to login
+        }
+        clearSessionToken();
+      }
+      onDone();
+    }
+    void tryRestore();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
+
 // --- App Providers ---
 export function Providers() {
+  const [sessionRestored, setSessionRestored] = useState(false);
+
   return (
     <ErrorBoundary>
       <ThemeInitializer />
       <InactivityWatcher />
       <PWAInitializer />
-      <SWStateSync />
-      <PeriodicSyncRegistrar />
-      <NotificationInitializer />
-      <RecurringTransactionInitializer />
-      <BillEntryInitializer />
-      <DashboardInitializer />
-      <RouterProvider router={router} />
-      <ToastRenderer />
+      <SessionRestorer onDone={() => { setSessionRestored(true); }} />
+      {!sessionRestored ? (
+        <LoadingSpinner />
+      ) : (
+        <>
+          <SWStateSync />
+          <PeriodicSyncRegistrar />
+          <NotificationInitializer />
+          <RecurringTransactionInitializer />
+          <BillEntryInitializer />
+          <DashboardInitializer />
+          <RouterProvider router={router} />
+          <ToastRenderer />
+        </>
+      )}
     </ErrorBoundary>
   );
 }
