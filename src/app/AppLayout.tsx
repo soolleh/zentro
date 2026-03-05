@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -10,6 +11,8 @@ import {
   Settings,
   Lock,
   Plus,
+  Grid2x2,
+  X,
 } from 'lucide-react';
 import { ROUTES } from '@/app/routes.constants';
 import { useSessionStore } from '@/app/session.store';
@@ -30,6 +33,10 @@ const NAV_ITEMS = [
   { label: 'Settings', to: ROUTES.SETTINGS, icon: Settings },
 ] as const;
 
+// First 4 always visible in bottom bar; the rest go in "More"
+const PRIMARY_NAV = NAV_ITEMS.slice(0, 4);
+const MORE_NAV = NAV_ITEMS.slice(4);
+
 // Auth/onboarding routes where the + button should NOT appear
 const HIDDEN_ROUTES = ['/login', '/register', '/onboarding'];
 
@@ -39,12 +46,16 @@ export function AppLayout() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const navigate = useNavigate();
   const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const displayInitial = currentUser?.displayName.charAt(0).toUpperCase() ?? 'Z';
   const showPlusButton = !HIDDEN_ROUTES.some((r) => location.pathname.startsWith(r));
 
+  // Is any "More" route currently active? (to highlight the More button)
+  const moreIsActive = MORE_NAV.some((item) => location.pathname.startsWith(item.to));
+
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-dvh bg-background overflow-hidden">
       {/* PWA: fixed banners — rendered outside the layout flow */}
       <UpdateBanner />
       {/* Desktop Sidebar */}
@@ -125,7 +136,7 @@ export function AppLayout() {
           className="lg:hidden flex items-center justify-around h-14 border-t border-border bg-card shrink-0"
           aria-label="Mobile navigation"
         >
-          {NAV_ITEMS.slice(0, 5).map(({ label, to, icon: Icon }) => (
+          {PRIMARY_NAV.map(({ label, to, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -139,8 +150,89 @@ export function AppLayout() {
               <span className="text-[10px]">{label}</span>
             </NavLink>
           ))}
+
+          {/* More button */}
+          <button
+            type="button"
+            onClick={() => { setMoreOpen(true); }}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 text-xs font-medium transition-colors ${moreIsActive ? 'text-primary' : 'text-muted-foreground'}`}
+            aria-label="More navigation options"
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
+          >
+            <Grid2x2 className="h-5 w-5" aria-hidden />
+            <span className="text-[10px]">More</span>
+          </button>
         </nav>
       </div>
+
+      {/* "More" bottom sheet overlay */}
+      {moreOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="lg:hidden fixed inset-0 z-40 bg-black/40"
+            onClick={() => { setMoreOpen(false); }}
+            aria-hidden="true"
+          />
+          {/* Sheet */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="More navigation"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-2xl shadow-xl animate-in slide-in-from-bottom duration-200 pb-safe"
+          >
+            {/* Handle + header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border">
+              <span className="text-sm font-semibold text-foreground">More</span>
+              <button
+                type="button"
+                onClick={() => { setMoreOpen(false); }}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+
+            {/* Grid of links */}
+            <div className="grid grid-cols-4 gap-1 p-4">
+              {MORE_NAV.map(({ label, to, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => { setMoreOpen(false); }}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-xs font-medium transition-colors ${isActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-foreground hover:bg-muted'
+                    }`
+                  }
+                  aria-label={label}
+                >
+                  <Icon className="h-6 w-6" aria-hidden />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+
+              {/* Lock inside More sheet */}
+              <button
+                type="button"
+                onClick={() => { setMoreOpen(false); lock(); }}
+                className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+                aria-label="Lock session"
+              >
+                <Lock className="h-6 w-6" aria-hidden />
+                <span>Lock</span>
+              </button>
+            </div>
+
+            {/* Bottom safe area spacer */}
+            <div className="h-4" />
+          </div>
+        </>
+      )}
+
       <InstallPrompt />
       <NotificationPermissionPrompt />
     </div>
