@@ -1,9 +1,10 @@
-import { X, Plus, Pencil, Target, Wallet } from 'lucide-react';
+import { X, Plus, Pencil, Target, Wallet, CheckCircle2 } from 'lucide-react';
 import { SlidePanel } from '@/shared/components/SlidePanel';
 import { GoalProgressRing } from './GoalProgressRing';
 import { MilestoneTracker } from './MilestoneTracker';
 import { ContributionTimeline } from './ContributionTimeline';
 import { GoalProjectionCard } from './GoalProjectionCard';
+import { WhatIfSimulator } from './WhatIfSimulator';
 import { useGoalPanel } from '@/app/stores/goal.store';
 import { formatCurrency } from '@/shared/utils/currency.utils';
 
@@ -141,7 +142,19 @@ export function GoalDetailPanel() {
           </div>
         )}
 
-        {/* Section 5: Contribution timeline */}
+        {/* Section 5: What-If Simulator */}
+        {isComplete ? (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-[hsl(var(--chart-4)/0.08)] border border-[hsl(var(--chart-4)/0.25)]">
+            <CheckCircle2 className="w-4 h-4 text-[hsl(var(--chart-4))] shrink-0" />
+            <p className="text-xs text-[hsl(var(--chart-4))]">This goal is complete. No projection needed.</p>
+          </div>
+        ) : (
+          <WhatIfSimulator goal={enriched} />
+        )}
+
+        <div className="h-px bg-border" />
+
+        {/* Section 6: Contribution timeline */}
         <div>
           <p className="text-sm font-semibold text-foreground mb-3">Contributions</p>
           <ContributionTimeline

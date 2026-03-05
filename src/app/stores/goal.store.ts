@@ -167,11 +167,11 @@ export function useGoalPanel() {
 }
 
 export function useIncompleteGoals(): EnrichedGoal[] {
-  return useGoalStore((s) => s.goals.filter((g) => !g.isComplete));
+  return useGoalStore(useShallow((s) => s.goals.filter((g) => !g.isComplete)));
 }
 
 export function useCompleteGoals(): EnrichedGoal[] {
-  return useGoalStore((s) => s.goals.filter((g) => g.isComplete));
+  return useGoalStore(useShallow((s) => s.goals.filter((g) => g.isComplete)));
 }
 
 export function useCelebrating() {
