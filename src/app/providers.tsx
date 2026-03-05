@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { RouterProvider } from 'react-router-dom';
+import { Workbox } from 'workbox-window';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { useUIStore } from '@/app/ui.store';
 import { useSessionStore } from '@/app/session.store';
@@ -8,6 +9,11 @@ import { router } from '@/app/router';
 import { generateRecurringTransactions } from '@/services/transactions/transaction.service';
 import { generateAllUserEntries } from '@/services/bills/bill.service';
 import { useDashboardStore } from '@/app/stores/dashboard.store';
+import { usePWAStore, type BeforeInstallPromptEvent } from '@/app/stores/pwa.store';
+import { usePreferencesStore } from '@/app/preferences.store';
+import { writeSWState } from '@/services/storage/sw-state.storage';
+import { registerPeriodicSync } from '@/services/pwa/periodic-sync.service';
+import { checkAndSchedule } from '@/services/notifications/notification.service';
 
 // --- Theme Initializer ---
 function ThemeInitializer() {
@@ -189,12 +195,138 @@ function DashboardInitializer() {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// --- PWA Initializer --- registers SW, captures install prompt, detects update
+// ---------------------------------------------------------------------------
+function PWAInitializer() {
+  const { setInstallPromptEvent, setInstalled, showInstallBanner, setUpdateAvailable } = usePWAStore();
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    // Register service worker via workbox-window
+    const wb = new Workbox('/zentro/sw.js', { scope: '/zentro/' });
+
+    // Store reference on window for UpdateBanner usage
+    window.__zentroWB = wb;
+
+    // Detect updates — a new SW is waiting
+    wb.addEventListener('waiting', () => {
+      setUpdateAvailable(true);
+    });
+
+    void wb.register();
+
+    // Capture the native install prompt
+    const handleInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPromptEvent(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+
+    // Detect already-installed state
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setInstalled(true);
+    }
+    window.addEventListener('appinstalled', () => { setInstalled(true); });
+
+    // Show install banner after 30s if prompt is available
+    const installBannerTimer = setTimeout(() => { showInstallBanner(); }, 30_000);
+
+    // Listen for navigation messages from SW (notification click)
+    navigator.serviceWorker.addEventListener('message', (event: MessageEvent<unknown>) => {
+      const data = event.data as { type?: string; url?: string } | null;
+      if (data?.type === 'NAVIGATE' && data.url) {
+        window.location.assign(data.url);
+      }
+    });
+
+    return () => {
+      clearTimeout(installBannerTimer);
+      window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// --- SW State Sync --- writes active userId + notificationPreferences to IDB
+//     so the service worker can read them while the main thread is sleeping
+// ---------------------------------------------------------------------------
+function SWStateSync() {
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const notificationPreferences = usePreferencesStore((s) => s.notificationPreferences);
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+
+  // Sync userId on login/logout
+  useEffect(() => {
+    if (isAuthenticated && currentUser?.id) {
+      void writeSWState('activeUserId', currentUser.id);
+      void writeSWState('notificationPreferences', notificationPreferences);
+    } else {
+      void writeSWState('activeUserId', null);
+    }
+  }, [isAuthenticated, currentUser, notificationPreferences]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// --- Periodic Sync Registrar --- registers PBS tags (or setInterval fallback)
+// ---------------------------------------------------------------------------
+function PeriodicSyncRegistrar() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isLocked = useSessionStore((s) => s.isLocked);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocked) {
+      hasRun.current = false;
+      return;
+    }
+    if (hasRun.current) return;
+    hasRun.current = true;
+    void registerPeriodicSync();
+  }, [isAuthenticated, isLocked]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// --- Notification Initializer --- runs the main-thread notification check
+//     once on session start so fresh alerts are sent without waiting for PBS
+// ---------------------------------------------------------------------------
+function NotificationInitializer() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isLocked = useSessionStore((s) => s.isLocked);
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocked || !currentUser) {
+      hasRun.current = false;
+      return;
+    }
+    if (hasRun.current) return;
+    hasRun.current = true;
+    void checkAndSchedule(currentUser.id);
+  }, [isAuthenticated, isLocked, currentUser]);
+
+  return null;
+}
+
 // --- App Providers ---
 export function Providers() {
   return (
     <ErrorBoundary>
       <ThemeInitializer />
       <InactivityWatcher />
+      <PWAInitializer />
+      <SWStateSync />
+      <PeriodicSyncRegistrar />
+      <NotificationInitializer />
       <RecurringTransactionInitializer />
       <BillEntryInitializer />
       <DashboardInitializer />

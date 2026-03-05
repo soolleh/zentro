@@ -14,6 +14,10 @@ import {
 import { ROUTES } from '@/app/routes.constants';
 import { useSessionStore } from '@/app/session.store';
 import { useUIStore } from '@/app/ui.store';
+import { UpdateBanner } from '@/features/pwa/components/UpdateBanner';
+import { InstallPrompt } from '@/features/pwa/components/InstallPrompt';
+import { NotificationPermissionPrompt } from '@/features/pwa/components/NotificationPermissionPrompt';
+import { OfflineIndicator } from '@/features/pwa/components/OfflineIndicator';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: ROUTES.DASHBOARD, icon: LayoutDashboard },
@@ -41,6 +45,8 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      {/* PWA: fixed banners — rendered outside the layout flow */}
+      <UpdateBanner />
       {/* Desktop Sidebar */}
       <aside
         className={`hidden lg:flex flex-col w-60 shrink-0 border-r border-border bg-card transition-all duration-200 ${sidebarOpen ? 'w-60' : 'w-0 overflow-hidden'
@@ -78,6 +84,7 @@ export function AppLayout() {
         <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0">
           <span className="text-base font-semibold text-foreground lg:hidden">Zentro</span>
           <div className="flex items-center gap-2 ml-auto">
+            <OfflineIndicator />
             {/* Desktop quick-add button — only on lg+ and non-auth routes */}
             {showPlusButton && (
               <button
@@ -134,6 +141,8 @@ export function AppLayout() {
           ))}
         </nav>
       </div>
+      <InstallPrompt />
+      <NotificationPermissionPrompt />
     </div>
   );
 }

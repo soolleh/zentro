@@ -10,20 +10,23 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icons/**', '*.svg'],
-      manifest: {
-        name: 'Zentro',
-        short_name: 'Zentro',
-        description: 'Offline-first personal finance PWA',
-        theme_color: '#0891b2',
-        background_color: '#f8fafa',
-        display: 'standalone',
-        start_url: '/',
-        scope: '/',
-        icons: [],
+      injectRegister: 'auto',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png', 'screenshots/*.png'],
+      // Manifest is served as a static file from public/manifest.webmanifest
+      manifest: false,
+      manifestFilename: 'manifest.webmanifest',
+      // Custom service worker built with injectManifest strategy
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      devOptions: {
+        enabled: true,
+        type: 'module',
       },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,webmanifest}'],
+        globIgnores: ['**/node_modules/**', '**/sw.js', '**/workbox-*.js'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ],

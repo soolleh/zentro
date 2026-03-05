@@ -103,6 +103,12 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
         }
         db.createObjectStore('user_settings', { keyPath: 'id' });
       }
+      // -----------------------------------------------------------------------
+      // V4 → sw_state object store (non-sensitive SW state)
+      // -----------------------------------------------------------------------
+      if (oldVersion < 4) {
+        db.createObjectStore('sw_state', { keyPath: 'key' });
+      }
     },
   });
 

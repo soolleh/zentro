@@ -92,6 +92,15 @@ export type BiometricCredentialRecord = {
   userId: string;
 } & SerializedEncryptedPayload;
 
+/**
+ * sw_state — non-sensitive state for the service worker.
+ * NO encrypted data. NO financial data. Only userId + preference flags.
+ */
+export type SWStateRecord = {
+  key: string;
+  value: unknown;
+};
+
 export interface ZentroDBSchema extends DBSchema {
   users: {
     key: string;
@@ -169,5 +178,10 @@ export interface ZentroDBSchema extends DBSchema {
     key: string;
     value: BiometricCredentialRecord;
     indexes: { userId: string };
+  };
+  sw_state: {
+    key: string;
+    value: SWStateRecord;
+    indexes: Record<never, never>;
   };
 }

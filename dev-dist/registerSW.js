@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/zentro/dev-sw.js?dev-sw', { scope: '/zentro/', type: 'module' })
