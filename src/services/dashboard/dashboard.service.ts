@@ -307,7 +307,7 @@ export async function getUpcomingBills(
   days: number
 ): Promise<Result<UpcomingBill[]>> {
   try {
-    const billsResult = await billStorage.listBillsByUser(userId);
+    const billsResult = await billStorage.listBillsByUser(userId, _key);
     // Graceful degradation
     if (!billsResult.success) {
       return { success: true, data: [] };
@@ -326,10 +326,10 @@ export async function getUpcomingBills(
 
     for (const bill of activeBills) {
       // Get pending entries
-      const entriesResult = await billEntryStorage.listEntriesByBill(bill.id);
+      const entriesResult = await billEntryStorage.listEntriesByBill(bill.id, _key);
       const entries = graceful(entriesResult, []);
 
-      const pendingEntries = entries.filter((e) => e.status === 'Pending');
+      const pendingEntries = entries.filter((e) => e.status === 'pending');
 
       for (const entry of pendingEntries) {
         const dueDate = new Date(entry.dueDate);

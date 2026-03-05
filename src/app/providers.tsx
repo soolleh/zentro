@@ -6,6 +6,7 @@ import { useSessionStore } from '@/app/session.store';
 import type { Toast } from '@/app/ui.store';
 import { router } from '@/app/router';
 import { generateRecurringTransactions } from '@/services/transactions/transaction.service';
+import { generateAllUserEntries } from '@/services/bills/bill.service';
 import { useDashboardStore } from '@/app/stores/dashboard.store';
 
 // --- Theme Initializer ---
@@ -141,6 +142,27 @@ function RecurringTransactionInitializer() {
   return null;
 }
 
+// --- Bill Entry Initializer ---
+function BillEntryInitializer() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isLocked = useSessionStore((s) => s.isLocked);
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const derivedKey = useSessionStore((s) => s.derivedKey);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocked || !currentUser || !derivedKey) {
+      hasRun.current = false;
+      return;
+    }
+    if (hasRun.current) return;
+    hasRun.current = true;
+    void generateAllUserEntries(currentUser.id, derivedKey);
+  }, [isAuthenticated, isLocked, currentUser, derivedKey]);
+
+  return null;
+}
+
 // --- Dashboard Initializer ---
 function DashboardInitializer() {
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
@@ -174,6 +196,7 @@ export function Providers() {
       <ThemeInitializer />
       <InactivityWatcher />
       <RecurringTransactionInitializer />
+      <BillEntryInitializer />
       <DashboardInitializer />
       <RouterProvider router={router} />
       <ToastRenderer />
