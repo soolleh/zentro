@@ -13,6 +13,11 @@ import type {
   BudgetCycleUtilization,
   EnrichedBudget,
   SpendingVelocity,
+  BudgetVsActual,
+  CycleComparison,
+  CategorySpendingTrend,
+  BudgetHealthScore,
+  CategoryDrillDown,
 } from '@/shared/types/budget.types';
 import {
   getCycleDates,
@@ -20,6 +25,13 @@ import {
   getBudgetUtilizationForCycle,
   ensureBudgetsForCycle,
 } from '@/services/budgets/budget.service';
+import {
+  getBudgetVsActual,
+  getCycleComparison,
+  getCategorySpendingTrends,
+  getCategoryDrillDown,
+  computeHealthScore,
+} from '@/services/budgets/budget-analytics.service';
 import { useSessionStore } from '@/app/stores/session.store';
 import { usePreferencesStore } from '@/app/preferences.store';
 
@@ -37,6 +49,18 @@ type BudgetState = {
   isPanelOpen: boolean;
   panelMode: 'add' | 'edit';
   activeBudget: Budget | null;
+  // Analytics
+  analyticsTab: 'overview' | 'trends' | 'comparison';
+  budgetVsActual: BudgetVsActual[];
+  cycleComparison: CycleComparison[];
+  categoryTrends: CategorySpendingTrend[];
+  healthScore: BudgetHealthScore | null;
+  isAnalyticsLoading: boolean;
+  isHealthScoreLoading: boolean;
+  drillDownCategoryId: UUID | null;
+  drillDownData: CategoryDrillDown | null;
+  isDrillDownLoading: boolean;
+  isDrillDownOpen: boolean;
 };
 
 type BudgetActions = {
@@ -50,6 +74,13 @@ type BudgetActions = {
   updateBudgetInList: (budget: Budget) => void;
   removeBudgetFromList: (budgetId: UUID) => void;
   addBudgetToList: (enriched: EnrichedBudget) => void;
+  // Analytics
+  setAnalyticsTab: (tab: 'overview' | 'trends' | 'comparison') => void;
+  loadAnalytics: (userId: UUID, cycleStart: ISODateString) => Promise<void>;
+  loadCategoryTrends: (userId: UUID, months: number) => Promise<void>;
+  loadHealthScore: (userId: UUID, cycleStart: ISODateString) => Promise<void>;
+  openDrillDown: (userId: UUID, categoryId: UUID, cycleStart: ISODateString) => Promise<void>;
+  closeDrillDown: () => void;
 };
 
 const TODAY_ISO = new Date().toISOString() as ISODateString;
@@ -64,6 +95,18 @@ const DEFAULTS: BudgetState = {
   isPanelOpen: false,
   panelMode: 'add',
   activeBudget: null,
+  // Analytics
+  analyticsTab: 'overview',
+  budgetVsActual: [],
+  cycleComparison: [],
+  categoryTrends: [],
+  healthScore: null,
+  isAnalyticsLoading: false,
+  isHealthScoreLoading: false,
+  drillDownCategoryId: null,
+  drillDownData: null,
+  isDrillDownLoading: false,
+  isDrillDownOpen: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -242,6 +285,114 @@ export const useBudgetStore = create<BudgetState & BudgetActions>((set, get) => 
       };
     });
   },
+
+  // ---------------------------------------------------------------------------
+  // Analytics actions
+  // ---------------------------------------------------------------------------
+
+  setAnalyticsTab(tab) {
+    set({ analyticsTab: tab });
+  },
+
+  async loadAnalytics(userId, cycleStart) {
+    const key = useSessionStore.getState().derivedKey;
+    const { baseCurrency, budgetCycleStartDay } = usePreferencesStore.getState();
+    if (!key) return;
+
+    set({ isAnalyticsLoading: true });
+
+    const cycleDates = getCycleDates(cycleStart, budgetCycleStartDay);
+
+    const [vsActualResult, comparisonResult, trendsResult] = await Promise.all([
+      getBudgetVsActual(userId, cycleDates.cycleStart, cycleDates.cycleEnd, key, baseCurrency),
+      getCycleComparison(userId, cycleStart, budgetCycleStartDay, key, baseCurrency),
+      getCategorySpendingTrends(userId, 6, budgetCycleStartDay, key, baseCurrency),
+    ]);
+
+    set({
+      isAnalyticsLoading: false,
+      budgetVsActual: vsActualResult.success ? vsActualResult.data : [],
+      cycleComparison: comparisonResult.success ? comparisonResult.data : [],
+      categoryTrends: trendsResult.success ? trendsResult.data : [],
+    });
+  },
+
+  async loadCategoryTrends(userId, months) {
+    const key = useSessionStore.getState().derivedKey;
+    const { baseCurrency, budgetCycleStartDay } = usePreferencesStore.getState();
+    if (!key) return;
+
+    set({ isAnalyticsLoading: true });
+
+    const result = await getCategorySpendingTrends(
+      userId,
+      months,
+      budgetCycleStartDay,
+      key,
+      baseCurrency
+    );
+
+    set({
+      isAnalyticsLoading: false,
+      categoryTrends: result.success ? result.data : [],
+    });
+  },
+
+  async loadHealthScore(userId, cycleStart) {
+    const key = useSessionStore.getState().derivedKey;
+    const { baseCurrency, budgetCycleStartDay } = usePreferencesStore.getState();
+    if (!key) return;
+
+    set({ isHealthScoreLoading: true });
+
+    const result = await computeHealthScore(
+      userId,
+      cycleStart,
+      budgetCycleStartDay,
+      key,
+      baseCurrency
+    );
+
+    set({
+      isHealthScoreLoading: false,
+      healthScore: result.success ? result.data : null,
+    });
+  },
+
+  async openDrillDown(userId, categoryId, cycleStart) {
+    const key = useSessionStore.getState().derivedKey;
+    const { baseCurrency, budgetCycleStartDay } = usePreferencesStore.getState();
+    if (!key) return;
+
+    set({
+      drillDownCategoryId: categoryId,
+      isDrillDownOpen: true,
+      isDrillDownLoading: true,
+      drillDownData: null,
+    });
+
+    const result = await getCategoryDrillDown(
+      userId,
+      categoryId,
+      cycleStart,
+      budgetCycleStartDay,
+      key,
+      baseCurrency
+    );
+
+    set({
+      isDrillDownLoading: false,
+      drillDownData: result.success ? result.data : null,
+    });
+  },
+
+  closeDrillDown() {
+    set({ isDrillDownOpen: false });
+    // Clear data after panel close animation (250ms)
+    setTimeout(() => {
+      set({ drillDownData: null, drillDownCategoryId: null });
+    }, 300);
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -285,6 +436,47 @@ export function useInlineEdit() {
     useShallow((s) => ({
       editingBudgetId: s.editingBudgetId,
       setEditingBudget: s.setEditingBudget,
+    }))
+  );
+}
+
+export function useBudgetAnalytics() {
+  return useBudgetStore(
+    useShallow((s) => ({
+      budgetVsActual: s.budgetVsActual,
+      cycleComparison: s.cycleComparison,
+      categoryTrends: s.categoryTrends,
+      isAnalyticsLoading: s.isAnalyticsLoading,
+    }))
+  );
+}
+
+export function useHealthScore() {
+  return useBudgetStore(
+    useShallow((s) => ({
+      healthScore: s.healthScore,
+      isHealthScoreLoading: s.isHealthScoreLoading,
+    }))
+  );
+}
+
+export function useDrillDown() {
+  return useBudgetStore(
+    useShallow((s) => ({
+      drillDownData: s.drillDownData,
+      isDrillDownLoading: s.isDrillDownLoading,
+      isDrillDownOpen: s.isDrillDownOpen,
+      openDrillDown: s.openDrillDown,
+      closeDrillDown: s.closeDrillDown,
+    }))
+  );
+}
+
+export function useAnalyticsTab() {
+  return useBudgetStore(
+    useShallow((s) => ({
+      analyticsTab: s.analyticsTab,
+      setAnalyticsTab: s.setAnalyticsTab,
     }))
   );
 }

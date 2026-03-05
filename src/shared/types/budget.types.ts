@@ -74,3 +74,75 @@ export type CreateBudgetParams = {
   readonly alertThreshold: number;
   readonly referenceDate?: ISODateString;
 };
+
+// ---------------------------------------------------------------------------
+// Analytics types
+// ---------------------------------------------------------------------------
+
+export type HealthScoreBreakdown = {
+  readonly utilizationScore: number; // 0–40 pts
+  readonly consistencyScore: number; // 0–30 pts
+  readonly overspendPenalty: number; // 0–20 pts deducted
+  readonly carryForwardBonus: number; // 0–10 pts
+};
+
+export type BudgetHealthScore = {
+  readonly score: number;
+  readonly grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  readonly label: string;
+  readonly breakdown: HealthScoreBreakdown;
+  readonly trend: 'improving' | 'stable' | 'declining';
+  readonly previousScore: number | null;
+};
+
+export type BudgetVsActual = {
+  readonly categoryId: UUID;
+  readonly categoryName: string;
+  readonly categoryColor: string;
+  readonly allocated: number;
+  readonly spent: number;
+  readonly variance: number;
+  readonly variancePercent: number;
+};
+
+export type CycleComparison = {
+  readonly categoryId: UUID;
+  readonly categoryName: string;
+  readonly categoryColor: string;
+  readonly currentCycleSpent: number;
+  readonly previousCycleSpent: number;
+  readonly threeMonthAverage: number;
+  readonly trend: 'up' | 'down' | 'stable';
+  readonly trendPercent: number;
+};
+
+export type SpendingTrendPoint = {
+  readonly cycleStart: ISODateString;
+  readonly spent: number;
+  readonly allocated: number;
+  readonly percentUsed: number;
+};
+
+export type CategorySpendingTrend = {
+  readonly categoryId: UUID;
+  readonly categoryName: string;
+  readonly categoryColor: string;
+  readonly points: SpendingTrendPoint[];
+};
+
+export type MerchantSummary = {
+  readonly name: string;
+  readonly totalSpent: number;
+  readonly transactionCount: number;
+  readonly lastTransactionDate: ISODateString;
+};
+
+export type CategoryDrillDown = {
+  readonly category: Category;
+  readonly currentCycle: EnrichedBudget;
+  readonly historicalTrend: SpendingTrendPoint[];
+  readonly transactions: Transaction[];
+  readonly topMerchants: MerchantSummary[];
+  readonly averageTransactionAmount: number;
+  readonly transactionFrequency: number;
+};

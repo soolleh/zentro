@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, List, BarChart2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useBudgetStore, useBudgetCycle, useBudgetPanel } from '@/app/stores/budget.store';
 import { useCurrentUser } from '@/app/stores/session.store';
@@ -9,6 +9,9 @@ import { BudgetHero } from '../components/BudgetHero';
 import { OverspendAlert } from '../components/OverspendAlert';
 import { BudgetList } from '../components/BudgetList';
 import { BudgetForm } from '../components/BudgetForm';
+import { AnalyticsTab } from './AnalyticsTab';
+
+type MainTab = 'list' | 'analytics';
 
 export function BudgetsPage() {
   const currentUser = useCurrentUser();
@@ -16,13 +19,15 @@ export function BudgetsPage() {
   const budgetCycleStartDay = usePreferencesStore((s) => s.budgetCycleStartDay);
   const { cycleUtilization, isLoading, isCurrentCycle } = useBudgetCycle();
   const { openPanel } = useBudgetPanel();
-  const { currentCycleStart, initBudgets } = useBudgetStore(
+  const { currentCycleStart, viewingCycleStart, initBudgets } = useBudgetStore(
     useShallow((s) => ({
       currentCycleStart: s.currentCycleStart,
+      viewingCycleStart: s.viewingCycleStart,
       initBudgets: s.initBudgets,
     }))
   );
 
+  const [activeTab, setActiveTab] = useState<MainTab>('list');
   const [overspendDismissed, setOverspendDismissed] = useState(false);
 
   useEffect(() => {
@@ -47,7 +52,7 @@ export function BudgetsPage() {
         <div className="flex items-center justify-between mb-5">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Budgets</h1>
           <div className="hidden lg:block">
-            {isCurrentCycle && (
+            {isCurrentCycle && activeTab === 'list' && (
               <button
                 type="button"
                 onClick={() => { openPanel('add'); }}
@@ -69,30 +74,56 @@ export function BudgetsPage() {
           />
         )}
 
-        {/* Hero */}
-        {cycleUtilization !== null && (
-          <BudgetHero cycleUtilization={cycleUtilization} />
-        )}
-
-        {/* Overspend alert */}
-        {showOverspendAlert && (
-          <OverspendAlert
-            cycleUtilization={cycleUtilization}
-            onDismiss={() => { setOverspendDismissed(true); }}
+        {/* Main tab bar */}
+        <div className="flex border-b border-border mb-5">
+          <MainTabButton
+            label="Budget List"
+            Icon={List}
+            active={activeTab === 'list'}
+            onClick={() => { setActiveTab('list'); }}
           />
+          <MainTabButton
+            label="Analytics"
+            Icon={BarChart2}
+            active={activeTab === 'analytics'}
+            onClick={() => { setActiveTab('analytics'); }}
+          />
+        </div>
+
+        {/* List tab content */}
+        {activeTab === 'list' && (
+          <>
+            {/* Hero */}
+            {cycleUtilization !== null && (
+              <BudgetHero cycleUtilization={cycleUtilization} />
+            )}
+
+            {/* Overspend alert */}
+            {showOverspendAlert && (
+              <OverspendAlert
+                cycleUtilization={cycleUtilization}
+                onDismiss={() => { setOverspendDismissed(true); }}
+              />
+            )}
+
+            {/* Budget list */}
+            <BudgetList
+              cycleUtilization={cycleUtilization}
+              isLoading={isLoading}
+              isCurrentCycle={isCurrentCycle}
+              baseCurrency={baseCurrency}
+            />
+          </>
         )}
 
-        {/* Budget list */}
-        <BudgetList
-          cycleUtilization={cycleUtilization}
-          isLoading={isLoading}
-          isCurrentCycle={isCurrentCycle}
-          baseCurrency={baseCurrency}
-        />
+        {/* Analytics tab content */}
+        {activeTab === 'analytics' && (
+          <AnalyticsTab cycleStart={viewingCycleStart} />
+        )}
       </div>
 
-      {/* Mobile / tablet FAB */}
-      {isCurrentCycle && (
+      {/* Mobile / tablet FAB — list tab only */}
+      {isCurrentCycle && activeTab === 'list' && (
         <button
           type="button"
           onClick={() => { openPanel('add'); }}
@@ -105,5 +136,33 @@ export function BudgetsPage() {
 
       <BudgetForm />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: main tab button
+// ---------------------------------------------------------------------------
+type MainTabButtonProps = {
+  readonly label: string;
+  readonly Icon: React.ComponentType<{ className?: string }>;
+  readonly active: boolean;
+  readonly onClick: () => void;
+};
+
+function MainTabButton({ label, Icon, active, onClick }: MainTabButtonProps) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active
+          ? 'border-primary text-primary'
+          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+        }`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+    </button>
   );
 }
