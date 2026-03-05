@@ -371,10 +371,10 @@ export async function getUpcomingBills(
 
 export async function getGoalProgress(
   userId: UUID,
-  _key: CryptoKey
+  key: CryptoKey
 ): Promise<Result<GoalProgressSummary[]>> {
   try {
-    const goalsResult = await goalStorage.listGoalsByUser(userId);
+    const goalsResult = await goalStorage.listGoalsByUser(userId, key);
     // Graceful degradation
     if (!goalsResult.success) {
       return { success: true, data: [] };
@@ -387,7 +387,7 @@ export async function getGoalProgress(
     const results: GoalProgressSummary[] = [];
 
     for (const goal of goalsResult.data) {
-      const contribResult = await goalContributionStorage.listContributionsByGoal(goal.id);
+      const contribResult = await goalContributionStorage.listContributionsByGoal(goal.id, key);
       const contributions = graceful(contribResult, []);
 
       const totalContributed = contributions.reduce((sum, c) => sum + c.amount, 0);
@@ -403,7 +403,7 @@ export async function getGoalProgress(
       let isOnTrack = false;
 
       if (isComplete) {
-        projectedCompletionDate = goal.targetDate;
+        projectedCompletionDate = goal.targetDate ?? null;
         isOnTrack = true;
       } else if (contributions.length >= 2) {
         // Rate = total contributed / days since first contribution
@@ -419,7 +419,7 @@ export async function getGoalProgress(
           const daysToComplete = remainingAmount / ratePerDay;
           const projectedDate = new Date(now + daysToComplete * 24 * 60 * 60 * 1000);
           projectedCompletionDate = projectedDate.toISOString() as ISODateString;
-          isOnTrack = projectedDate <= new Date(goal.targetDate);
+          isOnTrack = goal.targetDate ? projectedDate <= new Date(goal.targetDate) : false;
         }
       }
 
