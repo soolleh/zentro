@@ -10,6 +10,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: readonly NotificationPreference[] = [
   { type: 'BillDue', enabled: true },
   { type: 'GoalReminder', enabled: true, dayOfWeek: 1 },
   { type: 'WeeklySummary', enabled: true, dayOfWeek: 0, timeOfDay: '09:00' },
+  { type: 'DailyReminder', enabled: true, timeOfDay: '21:00' },
 ];
 
 // ---------------------------------------------------------------------------

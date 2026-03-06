@@ -6,7 +6,8 @@ export type NotificationType =
   | 'BillDueSoon'
   | 'GoalReminder'
   | 'GoalBehindTarget'
-  | 'WeeklySummary';
+  | 'WeeklySummary'
+  | 'DailyReminder';
 
 export type NotificationPreference = {
   readonly type: NotificationType;

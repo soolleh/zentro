@@ -5,7 +5,7 @@
  * Uses a custom Toggle (switch) component built inline.
  */
 
-import { Bell, BellDot, BellOff, TrendingUp, CalendarDays, BarChart2, Send } from 'lucide-react';
+import { Bell, BellDot, BellOff, TrendingUp, CalendarDays, BarChart2, Send, AlarmClock } from 'lucide-react';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsCard } from '../components/SettingsCard';
 import { SettingsRow } from '../components/SettingsRow';
@@ -156,6 +156,7 @@ export function NotificationsSection() {
   const billPref = getPref(notificationPreferences, 'BillDue');
   const goalPref = getPref(notificationPreferences, 'GoalReminder');
   const weeklySummaryPref = getPref(notificationPreferences, 'WeeklySummary');
+  const dailyReminderPref = getPref(notificationPreferences, 'DailyReminder');
 
   async function toggle(type: NotificationType, enabled: boolean) {
     if (enabled && notificationPermission === 'default' && isNotificationSupported()) {
@@ -280,6 +281,30 @@ export function NotificationsSection() {
           label="Savings Goal Reminders"
           description="Weekly reminders when a savings goal is behind target pace."
         />
+
+        {/* Daily Transaction Reminder */}
+        <NotificationRow
+          pref={dailyReminderPref}
+          onToggle={(enabled) => { void toggle('DailyReminder', enabled); }}
+          icon={<AlarmClock size={16} />}
+          label="Daily Transaction Reminder"
+          description="A daily nudge to log your transactions and keep your records current."
+        >
+          <div className="flex flex-col gap-2">
+            <label htmlFor="daily-reminder-time" className="text-xs text-muted-foreground">
+              Remind me at
+            </label>
+            <input
+              id="daily-reminder-time"
+              type="time"
+              value={dailyReminderPref.timeOfDay ?? '21:00'}
+              onChange={(e) => {
+                update({ ...dailyReminderPref, timeOfDay: e.target.value });
+              }}
+              className="w-32 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+        </NotificationRow>
 
         {/* Weekly Summary */}
         <NotificationRow

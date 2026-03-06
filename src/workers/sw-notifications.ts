@@ -70,6 +70,7 @@ async function sendSwNotification(
 interface SWNotificationPreference {
   type: string;
   enabled: boolean;
+  timeOfDay?: string;
 }
 
 export async function handleNotificationCheck(): Promise<void> {
@@ -91,12 +92,16 @@ export async function handleNotificationCheck(): Promise<void> {
   const isGoalEnabled = prefs?.find((p) => p.type === 'GoalReminder')?.enabled ?? false;
   const isWeeklyEnabled = prefs?.find((p) => p.type === 'WeeklySummary')?.enabled ?? false;
 
+  const isDailyEnabled = prefs?.find((p) => p.type === 'DailyReminder')?.enabled ?? false;
+  const dailyTimeOfDay = prefs?.find((p) => p.type === 'DailyReminder')?.timeOfDay ?? '21:00';
+
   // Check last notification send timestamps to avoid spam
   const now = Date.now();
   const lastBudget = await readSwStateValue<number>(db, 'sw_lastBudgetCheck');
   const lastBill = await readSwStateValue<number>(db, 'sw_lastBillCheck');
   const lastGoal = await readSwStateValue<number>(db, 'sw_lastGoalCheck');
   const lastWeekly = await readSwStateValue<number>(db, 'sw_lastWeeklyCheck');
+  const lastDailyReminderDate = await readSwStateValue<string>(db, 'sw_lastDailyReminderDate');
 
   const oneHour = 60 * 60 * 1000;
   const oneDay = 24 * oneHour;
@@ -161,6 +166,27 @@ export async function handleNotificationCheck(): Promise<void> {
   }
 
   await Promise.allSettled(notifications);
+
+  // Daily reminder — fires once during the configured hour
+  if (isDailyEnabled) {
+    const [hStr] = dailyTimeOfDay.split(':');
+    const targetHour = parseInt(hStr ?? '21', 10);
+    const nowDate = new Date();
+    const todayStr = nowDate.toISOString().substring(0, 10);
+    if (nowDate.getHours() === targetHour && lastDailyReminderDate !== todayStr) {
+      try {
+        await sendSwNotification(
+          "Have you logged today's transactions?",
+          'Keep your finances up to date \u2014 tap to add a transaction.',
+          `sw-daily-reminder-${todayStr}`,
+          '/#/transactions'
+        );
+        await db.put('sw_state', { key: 'sw_lastDailyReminderDate', value: todayStr });
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

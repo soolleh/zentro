@@ -104,6 +104,9 @@ export async function checkAndSchedule(userId: UUID): Promise<void> {
   const weeklyPref = prefs.find((p) => p.type === 'WeeklySummary');
   if (weeklyPref?.enabled) checks.push(checkWeeklySummary(userId, weeklyPref.dayOfWeek));
 
+  const dailyPref = prefs.find((p) => p.type === 'DailyReminder');
+  if (dailyPref?.enabled) checks.push(checkDailyReminder(dailyPref.timeOfDay ?? '21:00'));
+
   await Promise.allSettled(checks);
   await writeSWState('lastNotificationCheck', new Date().toISOString());
 }
@@ -333,6 +336,36 @@ async function checkWeeklySummary(
       actionUrl: '/zentro/dashboard',
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Daily reminder — fires once during the configured hour (default 9 PM)
+// ---------------------------------------------------------------------------
+
+async function checkDailyReminder(timeOfDay: string): Promise<void> {
+  const [hStr] = timeOfDay.split(':');
+  const targetHour = parseInt(hStr ?? '21', 10);
+  const now = new Date();
+
+  // Only fire during the configured hour
+  if (now.getHours() !== targetHour) return;
+
+  // Track by date string so it only fires once per day
+  const todayStr = now.toISOString().substring(0, 10);
+  const LS_KEY = 'zentro_last_daily_reminder';
+  if (localStorage.getItem(LS_KEY) === todayStr) return;
+
+  await sendNotification({
+    title: `Have you logged today\'s transactions?`,
+    body: 'Keep your finances up to date \u2014 tap to add a transaction.',
+    tag: `daily-reminder-${todayStr}`,
+    data: {
+      type: 'DailyReminder',
+      actionUrl: '/#/transactions',
+    },
+  });
+
+  localStorage.setItem(LS_KEY, todayStr);
 }
 
 // ---------------------------------------------------------------------------
