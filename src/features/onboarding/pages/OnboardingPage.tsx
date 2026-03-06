@@ -56,7 +56,7 @@ export function OnboardingPage() {
   const currentUser = useCurrentUser();
   const derivedKey = useDerivedKey();
   const navigate = useNavigate();
-  const { currentStep, direction, prevStep } = useOnboardingStep();
+  const { currentStep, direction, prevStep, nextStep } = useOnboardingStep();
   const { isSubmitting, stepError, setSubmitting, setStepError } = useOnboardingStatus();
   const reset = useOnboardingStore((s) => s.reset);
 
@@ -89,6 +89,17 @@ export function OnboardingPage() {
             {/* Wordmark + dots */}
             <div className="flex items-center justify-between">
               <AuthWordmark size="sm" />
+              {/* Skip setup — visible on steps 1-3 */}
+              {currentStep < 4 && (
+                <button
+                  type="button"
+                  onClick={() => { void handleComplete(); }}
+                  disabled={isSubmitting}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-150 underline-offset-2 hover:underline disabled:opacity-40"
+                >
+                  Skip setup
+                </button>
+              )}
               <div
                 className="flex items-center gap-1.5"
                 role="progressbar"
@@ -149,27 +160,44 @@ export function OnboardingPage() {
 
             {/* Primary action */}
             {currentStep < 4 ? (
-              <button
-                type="submit"
-                form="onboarding-step-form"
-                disabled={isSubmitting}
-                className={[
-                  'inline-flex items-center gap-2 px-6 h-10 rounded-lg text-sm font-semibold',
-                  'bg-primary text-primary-foreground',
-                  'hover:bg-primary/90 active:scale-[0.98] transition-all duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  'disabled:opacity-60 disabled:cursor-not-allowed',
-                ].join(' ')}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  'Continue'
-                )}
-              </button>
+              <div className="flex items-center gap-4">
+                {/* Skip this step */}
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  disabled={isSubmitting}
+                  className={[
+                    'text-sm text-muted-foreground hover:text-foreground',
+                    'transition-colors duration-150',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded',
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                  ].join(' ')}
+                >
+                  Skip
+                </button>
+                {/* Continue */}
+                <button
+                  type="submit"
+                  form="onboarding-step-form"
+                  disabled={isSubmitting}
+                  className={[
+                    'inline-flex items-center gap-2 px-6 h-10 rounded-lg text-sm font-semibold',
+                    'bg-primary text-primary-foreground',
+                    'hover:bg-primary/90 active:scale-[0.98] transition-all duration-150',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    'disabled:opacity-60 disabled:cursor-not-allowed',
+                  ].join(' ')}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    'Continue'
+                  )}
+                </button>
+              </div>
             ) : (
               <button
                 type="button"

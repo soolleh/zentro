@@ -20,6 +20,7 @@ import {
   clearSessionToken,
 } from '@/app/stores/session.store';
 import { userStorage } from '@/services/storage/user.storage';
+import { settingsStorage } from '@/services/storage/settings.storage';
 import type { UUID } from '@/shared/types/common.types';
 import { LoadingSpinner } from '@/app/LoadingSpinner';
 
@@ -328,6 +329,26 @@ function NotificationInitializer() {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// --- Session Logout Resetter ---
+// Reactively resets the preferences store whenever the user logs out so that
+// stale {isLoaded: true, onboardingCompletedAt: null} state from a prior
+// mid-onboarding session can never trigger a spurious onboarding redirect
+// on the next login.
+// ---------------------------------------------------------------------------
+function SessionLogoutResetter() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      usePreferencesStore.getState().reset();
+    }
+  }, [isAuthenticated]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // --- Session Restorer ---
 // Reads the sessionStorage token written on login/unlock and silently
 // restores the Zustand session state before the router mounts.
@@ -348,6 +369,16 @@ function SessionRestorer({ onDone }: { onDone: () => void }) {
           ]);
           if (userResult.success) {
             restoreSession(userResult.data, key, token.inactivityTimeoutMinutes);
+            // Load preferences so the app has the correct preference data
+            // (currency, theme, onboardingCompletedAt, etc.) from the start
+            // of the restored session, not just the in-memory defaults.
+            const settingsResult = await settingsStorage.getSettingsByUser(
+              userResult.data.id,
+              key
+            );
+            if (settingsResult.success) {
+              usePreferencesStore.getState().loadPreferences(settingsResult.data);
+            }
             onDone();
             return;
           }
@@ -359,7 +390,7 @@ function SessionRestorer({ onDone }: { onDone: () => void }) {
       onDone();
     }
     void tryRestore();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return null;
@@ -373,6 +404,7 @@ export function Providers() {
     <ErrorBoundary>
       <ThemeInitializer />
       <InactivityWatcher />
+      <SessionLogoutResetter />
       <PWAInitializer />
       <SessionRestorer onDone={() => { setSessionRestored(true); }} />
       {!sessionRestored ? (
