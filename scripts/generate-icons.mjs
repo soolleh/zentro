@@ -19,7 +19,7 @@ mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 const sourceSvg = readFileSync(join(ICONS_DIR, 'icon-source.svg'));
 
 // Standard sizes
-const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+const sizes = [72, 96, 128, 144, 152, 180, 192, 384, 512];
 
 console.log('Generating app icons from icon-source.svg…');
 
@@ -77,6 +77,35 @@ await sharp(Buffer.from(dashSvg))
   .png()
   .toFile(join(ICONS_DIR, 'shortcut-dashboard.png'));
 console.log('  ✓ shortcut-dashboard.png');
+
+// Placeholder screenshots (1280×720 wide, 390×844 narrow)
+const wideSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#0891b2"/>
+  <rect x="40" y="40" width="1200" height="640" rx="16" fill="#f8fafc" opacity="0.12"/>
+  <text x="640" y="380" font-family="sans-serif" font-size="56" font-weight="bold"
+        fill="white" text-anchor="middle" dominant-baseline="middle">Zentro</text>
+</svg>`;
+
+await sharp(Buffer.from(wideSvg))
+  .resize(1280, 720)
+  .png()
+  .toFile(join(SCREENSHOTS_DIR, 'dashboard.png'));
+console.log('  ✓ screenshots/dashboard.png');
+
+const narrowSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844">
+  <rect width="390" height="844" fill="#0891b2"/>
+  <rect x="20" y="60" width="350" height="724" rx="16" fill="#f8fafc" opacity="0.12"/>
+  <text x="195" y="422" font-family="sans-serif" font-size="42" font-weight="bold"
+        fill="white" text-anchor="middle" dominant-baseline="middle">Zentro</text>
+</svg>`;
+
+await sharp(Buffer.from(narrowSvg))
+  .resize(390, 844)
+  .png()
+  .toFile(join(SCREENSHOTS_DIR, 'transactions.png'));
+console.log('  ✓ screenshots/transactions.png');
+
+console.log('\nAll assets generated successfully.');
 
 // Apple touch icon (same as 192)
 await sharp(sourceSvg)

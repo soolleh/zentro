@@ -22,9 +22,10 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       devOptions: {
-        // Disabled in dev — SW + manifest work correctly in the production build.
-        // Enabling this causes 404/MIME-type errors in dev with base: '/zentro/'.
-        enabled: false,
+        // Enabled so the install prompt and SW features work during local dev.
+        // VitePWA compiles the SW source on the fly via Vite's module pipeline.
+        enabled: true,
+        type: 'module',
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,webmanifest}'],
