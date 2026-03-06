@@ -2,7 +2,7 @@
   "name": "Zentro",
   "short_name": "Zentro",
   "description": "Private, offline-first personal finance tracker",
-  "start_url": "/zentro/",
+  "start_url": "/zentro/#/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#f8fafc",
@@ -87,13 +87,13 @@
       "name": "Add Transaction",
       "short_name": "Add",
       "description": "Record a new transaction",
-      "url": "/zentro/transactions?action=add",
+      "url": "/zentro/#/transactions?action=add",
       "icons": [{ "src": "/zentro/icons/shortcut-add.png", "sizes": "96x96" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
-      "url": "/zentro/dashboard",
+      "url": "/zentro/#/dashboard",
       "icons": [{ "src": "/zentro/icons/shortcut-dashboard.png", "sizes": "96x96" }]
     }
   ],
