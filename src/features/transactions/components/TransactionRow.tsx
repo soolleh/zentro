@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { Pencil, Trash2, Repeat, Paperclip } from 'lucide-react';
+import { CategoryIcon } from '@/shared/ui/CategoryIcon';
 import { useDrag } from '@use-gesture/react';
 import type { Transaction } from '@/shared/types/transaction.types';
 import type { Category } from '@/shared/types/category.types';
@@ -161,12 +162,12 @@ export function TransactionRow({
             backgroundColor: category ? `${category.color}26` : 'hsl(var(--muted))',
           }}
         >
-          <span
-            className="text-base"
+          <CategoryIcon
+            name={category?.icon}
+            className="w-5 h-5"
             style={{ color: category?.color ?? 'hsl(var(--muted-foreground))' }}
-          >
-            {category?.icon ?? '📄'}
-          </span>
+            aria-hidden
+          />
         </div>
 
         {/* Main info */}

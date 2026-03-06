@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pencil, Trash2, Bell, AlertCircle, ArrowRight, Plus } from 'lucide-react';
+import { CategoryIcon } from '@/shared/ui/CategoryIcon';
 import type { EnrichedBudget } from '@/shared/types/budget.types';
 import { formatCurrency } from '@/shared/utils/currency.utils';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
@@ -119,9 +120,12 @@ export function BudgetRow({ enrichedBudget, baseCurrency, isCurrentCycle }: Budg
             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ backgroundColor: `${category.color}1f` }}
           >
-            <span className="text-sm" style={{ color: category.color }}>
-              {category.icon}
-            </span>
+            <CategoryIcon
+              name={category.icon}
+              className="w-5 h-5"
+              style={{ color: category.color }}
+              aria-hidden
+            />
           </div>
 
           {/* Budget info */}
