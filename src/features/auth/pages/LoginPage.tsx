@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Fingerprint, Info, Loader2 } from 'lucide-react';
 import { AuthBackground } from '../components/AuthBackground';
 import { AuthWordmark } from '../components/AuthWordmark';
 import { AuthCard } from '../components/AuthCard';
@@ -14,10 +14,16 @@ import { loginUser } from '@/services/auth/auth.service';
 import { buildDefaultSettings } from '@/services/auth/auth.constants';
 import { userStorage } from '@/services/storage/user.storage';
 import { settingsStorage } from '@/services/storage/settings.storage';
+import { biometricStorage } from '@/services/storage/biometric.storage';
+import {
+  isPlatformAuthenticatorAvailable,
+  verifyBiometric,
+  decryptKeyFromBiometric,
+} from '@/services/auth/webauthn.service';
 import { useSessionStore } from '@/app/stores/session.store';
 import { usePreferencesStore } from '@/app/preferences.store';
 import { ROUTES } from '@/app/routes.constants';
-import type { LocalUser } from '@/shared/types/user.types';
+import type { LocalUser, BiometricCredential } from '@/shared/types/user.types';
 
 // ---------------------------------------------------------------------------
 // Labels
@@ -33,7 +39,11 @@ const LABELS = {
   REGISTER_PROMPT: 'New to Zentro?',
   REGISTER_LINK: 'Create a local account',
   ACCOUNTS_SECTION: 'Accounts on this device',
-  DIVIDER: 'Sign in',
+  DIVIDER: 'or sign in with password',
+  USE_BIOMETRIC: 'Use Face ID / Touch ID',
+  BIOMETRIC_WAITING: 'Waiting for biometric…',
+  BIOMETRIC_UNAVAILABLE: 'Biometric unavailable. Use your password.',
+  OR_DIVIDER: 'or',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -59,6 +69,12 @@ export function LoginPage() {
   const [formError, setFormError] = useState<string | undefined>(undefined);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
+  // --- Biometric state
+  const [enrolledCredential, setEnrolledCredential] = useState<BiometricCredential | null>(null);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricNotice, setBiometricNotice] = useState<string | null>(null);
+  const autoTriggered = useRef(false);
+
   // Load existing local users on mount
   useEffect(() => {
     void (async () => {
@@ -72,6 +88,82 @@ export function LoginPage() {
       }
     })();
   }, []);
+
+  // Check biometric availability whenever the selected user changes
+  useEffect(() => {
+    setEnrolledCredential(null);
+    setBiometricNotice(null);
+    autoTriggered.current = false;
+    if (!selectedUser) return;
+
+    let cancelled = false;
+    void (async () => {
+      const [platformAvailable, credentialResult] = await Promise.all([
+        isPlatformAuthenticatorAvailable(),
+        biometricStorage.getBiometricCredentialByUser(selectedUser.id),
+      ]);
+      if (cancelled) return;
+      if (platformAvailable && credentialResult.success && credentialResult.data) {
+        setEnrolledCredential(credentialResult.data);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedUser]);
+
+  // Auto-trigger biometric prompt once credential is known
+  useEffect(() => {
+    if (!enrolledCredential || autoTriggered.current) return;
+    autoTriggered.current = true;
+    const timer = setTimeout(() => { void handleBiometricLogin(); }, 300);
+    return () => { clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enrolledCredential]);
+
+  // Shared post-auth flow: load settings and complete the login
+  const completeLogin = useCallback(
+    async (user: LocalUser, derivedKey: CryptoKey) => {
+      const settingsResult = await settingsStorage.getSettingsByUser(user.id, derivedKey);
+      const timeoutMinutes = settingsResult.success
+        ? settingsResult.data.inactivityTimeoutMinutes
+        : 5;
+      storeLogin(user, derivedKey, timeoutMinutes);
+      if (settingsResult.success) {
+        loadPreferences(settingsResult.data);
+      } else if (settingsResult.error.code === 'SETTINGS_NOT_FOUND') {
+        const now = new Date().toISOString() as Parameters<typeof buildDefaultSettings>[1];
+        const defaults = buildDefaultSettings(user.id, now);
+        void settingsStorage.upsertSettings(defaults, derivedKey);
+      }
+      void navigate(ROUTES.DASHBOARD);
+    },
+    [storeLogin, loadPreferences, navigate],
+  );
+
+  // Biometric login handler
+  const handleBiometricLogin = useCallback(async () => {
+    if (!enrolledCredential || !selectedUser || biometricLoading) return;
+    setBiometricLoading(true);
+    setBiometricNotice(null);
+
+    const verifyResult = await verifyBiometric({ credentialId: enrolledCredential.credentialId });
+    if (!verifyResult.success) {
+      setBiometricLoading(false);
+      if (verifyResult.error.code !== 'WEBAUTHN_USER_CANCELLED') {
+        setBiometricNotice(LABELS.BIOMETRIC_UNAVAILABLE);
+      }
+      return;
+    }
+
+    const keyResult = await decryptKeyFromBiometric(verifyResult.data.encryptedKeyBlob);
+    if (!keyResult.success) {
+      setBiometricLoading(false);
+      setBiometricNotice(LABELS.BIOMETRIC_UNAVAILABLE);
+      return;
+    }
+
+    await completeLogin(selectedUser, keyResult.data);
+    setBiometricLoading(false);
+  }, [enrolledCredential, selectedUser, biometricLoading, completeLogin]);
 
   const {
     register,
@@ -89,31 +181,12 @@ export function LoginPage() {
       setFormError(authResult.error.message);
       return;
     }
-    const { user, derivedKey } = authResult.data;
-
-    // Load user settings to determine inactivity timeout
-    const settingsResult = await settingsStorage.getSettingsByUser(user.id, derivedKey);
-    const timeoutMinutes = settingsResult.success
-      ? settingsResult.data.inactivityTimeoutMinutes
-      : 5;
-
-    storeLogin(user, derivedKey, timeoutMinutes);
-
-    // Hydrate preferences store from settings (best-effort; non-blocking)
-    if (settingsResult.success) {
-      loadPreferences(settingsResult.data);
-    } else if (settingsResult.error.code === 'SETTINGS_NOT_FOUND') {
-      // Settings record missing (e.g. after DB schema migration) — create defaults
-      const now = new Date().toISOString() as Parameters<typeof buildDefaultSettings>[1];
-      const defaults = buildDefaultSettings(user.id, now);
-      void settingsStorage.upsertSettings(defaults, derivedKey);
-    }
-
-    void navigate(ROUTES.DASHBOARD);
+    await completeLogin(authResult.data.user, authResult.data.derivedKey);
   }
 
   const noAccounts = !loadingUsers && users.length === 0;
   const hasUsers = !loadingUsers && users.length > 0;
+  const isBiometricAvailable = !!enrolledCredential && !!selectedUser;
 
   return (
     <AuthBackground>
@@ -160,8 +233,45 @@ export function LoginPage() {
           </div>
         )}
 
-        {/* Divider — between user switcher and form */}
+        {/* Divider — between user switcher and sign-in section */}
         {hasUsers && (
+          <div className="flex items-center gap-3" aria-hidden="true">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground">
+              {isBiometricAvailable ? LABELS.OR_DIVIDER : LABELS.DIVIDER}
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+        )}
+
+        {/* Biometric sign-in — shown when an enrolled credential exists for the selected user */}
+        {isBiometricAvailable && (
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { void handleBiometricLogin(); }}
+              disabled={biometricLoading || isSubmitting}
+              className="h-12 w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Sign in with biometrics"
+            >
+              {biometricLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Fingerprint className="w-5 h-5" aria-hidden="true" />
+              )}
+              {biometricLoading ? LABELS.BIOMETRIC_WAITING : LABELS.USE_BIOMETRIC}
+            </button>
+            {biometricNotice && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground" role="status">
+                <Info className="w-3 h-3 shrink-0" aria-hidden="true" />
+                {biometricNotice}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Divider between biometric and password form */}
+        {isBiometricAvailable && (
           <div className="flex items-center gap-3" aria-hidden="true">
             <div className="flex-1 h-px bg-border" />
             <span className="text-xs text-muted-foreground">{LABELS.DIVIDER}</span>
@@ -169,7 +279,7 @@ export function LoginPage() {
           </div>
         )}
 
-        {/* Form */}
+        {/* Password form */}
         {!noAccounts && (
           <form
             onSubmit={(e) => { void handleSubmit(onSubmit)(e); }}

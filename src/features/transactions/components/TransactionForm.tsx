@@ -10,7 +10,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTransactionStore } from '@/app/stores/transaction.store';
 import { useSessionStore } from '@/app/stores/session.store';
 import { useUIStore } from '@/app/ui.store';
-import { useDateFormat } from '@/app/preferences.store';
+import { useDateFormat, useBaseCurrency } from '@/app/preferences.store';
 import { AccountSelector } from './AccountSelector';
 import { CategorySelector } from './CategorySelector';
 import { DatePicker } from './DatePicker';
@@ -89,6 +89,7 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
   const removeTransactionFromList = useTransactionStore((s) => s.removeTransactionFromList);
   const addToast = useUIStore((s) => s.addToast);
   const { dateFormat } = useDateFormat();
+  const { baseCurrency } = useBaseCurrency();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -190,7 +191,7 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
             categoryId: (values.categoryId as UUID) || ('' as UUID),
             type: values.type,
             amount: parseFloat(values.amount),
-            currency: (selectedAccount?.currency ?? 'USD') as Currency,
+            currency: (selectedAccount?.currency ?? baseCurrency) as Currency,
             frequency: values.recurringFrequency,
             interval: 1,
             startDate: values.date as ISODateString,
@@ -238,7 +239,7 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
             accountId: values.accountId as UUID,
             type: values.type,
             amount: parseFloat(values.amount),
-            currency: (selectedAccount?.currency ?? 'USD') as Currency,
+            currency: (selectedAccount?.currency ?? baseCurrency) as Currency,
             categoryId: values.categoryId as UUID,
             date: values.date as ISODateString,
             notes: values.notes || undefined,
@@ -330,7 +331,7 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
           <label className="text-sm font-medium text-foreground">Amount</label>
           <div className="flex items-center gap-2">
             <div className="h-10 px-3 rounded-lg border border-input bg-muted text-sm font-medium text-foreground flex items-center min-w-[56px]">
-              {selectedAccount?.currency ?? 'USD'}
+              {selectedAccount?.currency ?? baseCurrency}
             </div>
             <input
               {...register('amount', { required: true })}

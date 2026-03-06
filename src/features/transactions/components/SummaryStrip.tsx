@@ -6,16 +6,15 @@ import {
   parseISO,
   isWithinInterval,
 } from 'date-fns';
+import { useBaseCurrency } from '@/app/preferences.store';
+import { formatCurrency } from '@/shared/utils/currency.utils';
 
 type SummaryStripProps = {
   transactions: Transaction[];
 };
 
-function formatAmount(amount: number, prefix: string = ''): string {
-  return `${prefix}$${amount.toFixed(2)}`;
-}
-
 export function SummaryStrip({ transactions }: SummaryStripProps) {
+  const { baseCurrency } = useBaseCurrency();
   const { income, expenses, net } = useMemo(() => {
     const now = new Date();
     const start = startOfMonth(now);
@@ -45,14 +44,14 @@ export function SummaryStrip({ transactions }: SummaryStripProps) {
       <div className="flex flex-col gap-0.5 shrink-0 px-4 py-2.5 rounded-xl border border-border bg-card min-w-[120px]">
         <span className="text-xs text-muted-foreground">Income</span>
         <span className="text-base font-semibold text-[hsl(var(--chart-4))]">
-          {formatAmount(income, '+')}
+          +{formatCurrency(income, baseCurrency)}
         </span>
       </div>
       {/* Expenses */}
       <div className="flex flex-col gap-0.5 shrink-0 px-4 py-2.5 rounded-xl border border-border bg-card min-w-[120px]">
         <span className="text-xs text-muted-foreground">Expenses</span>
         <span className="text-base font-semibold text-destructive">
-          {formatAmount(expenses)}
+          {formatCurrency(expenses, baseCurrency)}
         </span>
       </div>
       {/* Net */}
@@ -61,7 +60,7 @@ export function SummaryStrip({ transactions }: SummaryStripProps) {
         <span
           className={`text-base font-semibold ${net >= 0 ? 'text-[hsl(var(--chart-4))]' : 'text-destructive'}`}
         >
-          {net >= 0 ? formatAmount(net, '+') : formatAmount(Math.abs(net), '-')}
+          {net >= 0 ? `+${formatCurrency(net, baseCurrency)}` : `-${formatCurrency(Math.abs(net), baseCurrency)}`}
         </span>
       </div>
     </div>

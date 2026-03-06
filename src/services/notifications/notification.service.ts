@@ -38,23 +38,46 @@ export async function requestPermission(): Promise<NotificationPermission> {
 // Send a single local notification via the SW registration
 // ---------------------------------------------------------------------------
 
+/** Resolves navigator.serviceWorker.ready with a timeout. */
+async function getSwRegistration(timeoutMs = 3000): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+}
+
 export async function sendNotification(payload: LocalNotificationPayload): Promise<void> {
   if (typeof Notification === 'undefined') return;
   if (Notification.permission !== 'granted') return;
 
+  const notificationOptions = {
+    body: payload.body,
+    icon: payload.icon ?? '/zentro/icons/icon-192.png',
+    badge: payload.badge ?? '/zentro/icons/icon-96.png',
+    tag: payload.tag,
+    data: payload.data,
+    silent: payload.silent ?? false,
+  };
+
   try {
-    const registration = await navigator.serviceWorker.ready;
-    await registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: payload.icon ?? '/zentro/icons/icon-192.png',
-      badge: payload.badge ?? '/zentro/icons/icon-96.png',
-      tag: payload.tag,
-      data: payload.data,
-      silent: payload.silent ?? false,
-    });
+    const registration = await getSwRegistration();
+    if (registration) {
+      await registration.showNotification(payload.title, notificationOptions);
+    } else {
+      // SW not ready (e.g. dev mode, SW install pending) — fall back to
+      // creating the Notification directly on the main thread.
+      // eslint-disable-next-line no-new
+      new Notification(payload.title, notificationOptions);
+    }
   } catch (err) {
-    // Degrade gracefully
-    console.warn('[Zentro] sendNotification failed:', err);
+    // Last-resort fallback
+    try {
+      // eslint-disable-next-line no-new
+      new Notification(payload.title, notificationOptions);
+    } catch {
+      console.warn('[Zentro] sendNotification failed:', err);
+    }
   }
 }
 

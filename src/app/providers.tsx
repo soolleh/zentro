@@ -212,10 +212,9 @@ function PWAInitializer() {
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
-    // sw.js only exists in the production build — skip registration in dev.
-    if (!import.meta.env.PROD) return;
 
-    // Register service worker via workbox-window
+    // Register service worker via workbox-window.
+    // VitePWA with devOptions.enabled compiles and serves sw.js in dev too.
     const wb = new Workbox(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL });
 
     // Store reference on window for UpdateBanner usage

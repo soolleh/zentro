@@ -1,5 +1,6 @@
 import { useRef, useMemo, useCallback } from 'react';
 import { Plus, Upload } from 'lucide-react';
+import { useBaseCurrency } from '@/app/preferences.store';
 import { useTransactions, useTransactionFilters, useTransactionPanel, useTransactionStore } from '@/app/stores/transaction.store';
 import type { Transaction } from '@/shared/types/transaction.types';
 import type { UUID } from '@/shared/types/common.types';
@@ -142,8 +143,10 @@ export function TransactionsPage() {
   const handleEditFromDetail = () => { if (activeTransaction) openPanel('edit', activeTransaction); };
   const handleClosePanel = () => { closePanel(); };
 
+  const { baseCurrency } = useBaseCurrency();
   const amountFormatter = new Intl.NumberFormat(undefined, {
-    style: 'decimal',
+    style: 'currency',
+    currency: baseCurrency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
