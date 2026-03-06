@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Pencil, Trash2, Repeat, Paperclip } from 'lucide-react';
 import { CategoryIcon } from '@/shared/ui/CategoryIcon';
+import { formatCurrency } from '@/shared/utils/currency.utils';
 import { useDrag } from '@use-gesture/react';
 import type { Transaction } from '@/shared/types/transaction.types';
 import type { Category } from '@/shared/types/category.types';
@@ -16,10 +17,11 @@ type TransactionRowProps = {
 };
 
 function formatAmount(transaction: Transaction): string {
-  const { type, amount } = transaction;
-  if (type === 'Income') return `+$${amount.toFixed(2)}`;
-  if (type === 'Transfer') return `→$${amount.toFixed(2)}`;
-  return `$${amount.toFixed(2)}`;
+  const { type, amount, currency } = transaction;
+  const formatted = formatCurrency(amount, currency);
+  if (type === 'Income') return `+${formatted}`;
+  if (type === 'Transfer') return `→${formatted}`;
+  return formatted;
 }
 
 function getAmountColor(type: Transaction['type']): string {

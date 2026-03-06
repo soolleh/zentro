@@ -18,38 +18,37 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Zentro" />
-    <link rel="apple-touch-icon" href="/zentro/icons/icon-180.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/icon-180.png" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/zentro/icons/icon-72.png" />
-    <link rel="icon" type="image/svg+xml" href="/zentro/icons/icon-source.svg" />
-
-    <!--
-      GitHub Pages SPA path restore.
-      Counterpart to public/404.html. Decodes the ?p= redirect, strips it from
-      the URL, and restores via history.replaceState before React Router boots.
-    -->
-    <script>
-      (function () {
-        var search = window.location.search;
-        if (search.indexOf('?p=/') === 0 || search.indexOf('?p=') === 0) {
-          var decoded = search
+    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%icons/icon-72.png" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%icons/icon-source.svg" />
+    <!-- Start Single Page Apps for GitHub Pages -->
+    <script type="text/javascript">
+      // Single Page Apps for GitHub Pages
+      // MIT License
+      // https://github.com/rafgraph/spa-github-pages
+      // This script checks to see if a redirect is present in the query string,
+      // converts it back into the correct url and adds it to the
+      // browser's history using window.history.replaceState(...),
+      // which won't cause the browser to attempt to load the new url.
+      // When the single page app is loaded further down in this file,
+      // the correct url will be waiting in the browser's history for
+      // the single page app to route accordingly.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search
             .slice(1)
             .split('&')
-            .reduce(function (acc, pair) {
-              var kv = pair.split('=');
-              acc[decodeURIComponent(kv[0])] = decodeURIComponent(kv.slice(1).join('='));
-              return acc;
-            }, {});
-          var url =
-            window.location.pathname.replace(/\/$/, '') +
-            (decoded.p || '') +
-            (decoded.q ? '?' + decoded.q : '') +
-            window.location.hash;
-          window.history.replaceState(null, '', url);
+            .map(function (s) {
+              return s.replace(/~and~/g, '&');
+            })
+            .join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
         }
-      })();
+      })(window.location);
     </script>
+    <!-- End Single Page Apps for GitHub Pages -->
   </head>
   <body>
     <div id="root"></div>

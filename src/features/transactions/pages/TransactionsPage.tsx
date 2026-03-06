@@ -2,6 +2,7 @@ import { useRef, useMemo, useCallback } from 'react';
 import { Plus, Upload } from 'lucide-react';
 import { useTransactions, useTransactionFilters, useTransactionPanel, useTransactionStore } from '@/app/stores/transaction.store';
 import type { Transaction } from '@/shared/types/transaction.types';
+import type { UUID } from '@/shared/types/common.types';
 import { SlidePanel } from '@/shared/components/SlidePanel';
 import { SummaryStrip } from '../components/SummaryStrip';
 import { FilterBar } from '../components/FilterBar';
@@ -104,7 +105,12 @@ export function TransactionsPage() {
   const loadMore = useTransactionStore((s) => s.loadMore);
   const nextCursor = useTransactionStore((s) => s.nextCursor);
 
-  useTransactionList();
+  const { categoryMap, accounts } = useTransactionList();
+
+  const accountMap = useMemo(
+    () => new Map(accounts.map((a) => [a.account.id as UUID, a.account])),
+    [accounts]
+  );
 
   const hasMore = Boolean(nextCursor);
   const hasFilters = Boolean(
@@ -214,6 +220,8 @@ export function TransactionsPage() {
                     <TransactionRow
                       key={tx.id}
                       transaction={tx}
+                      category={categoryMap.get(tx.categoryId as UUID)}
+                      account={accountMap.get(tx.accountId as UUID)}
                       onPress={() => { openPanel('view', tx); }}
                       onDelete={() => { openPanel('view', tx); }}
                       onEdit={() => { openPanel('edit', tx); }}
