@@ -120,6 +120,13 @@ export type TemplateRecord = {
   useCount: number;
 } & SerializedEncryptedPayload;
 
+export type AlertRecord = {
+  id: string;
+  userId: string;
+  accountId: string;
+  status: string;
+} & SerializedEncryptedPayload;
+
 export interface ZentroDBSchema extends DBSchema {
   users: {
     key: string;
@@ -212,5 +219,10 @@ export interface ZentroDBSchema extends DBSchema {
     key: string;
     value: TemplateRecord;
     indexes: { userId: string; lastUsedAt: string; useCount: number };
+  };
+  account_alerts: {
+    key: string;
+    value: AlertRecord;
+    indexes: { userId: string; accountId: string; status: string };
   };
 }

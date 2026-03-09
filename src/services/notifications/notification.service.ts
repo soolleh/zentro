@@ -15,6 +15,7 @@ import { writeSWState } from '@/services/storage/sw-state.storage';
 import { usePreferencesStore } from '@/app/preferences.store';
 import { useSessionStore } from '@/app/stores/session.store';
 import { transactionStorage } from '@/services/storage/transaction.storage';
+import { evaluateAllAlertsForUser, sendAlertNotifications } from '@/services/alerts/alert.service';
 
 // ---------------------------------------------------------------------------
 // Capability checks
@@ -107,8 +108,24 @@ export async function checkAndSchedule(userId: UUID): Promise<void> {
   const dailyPref = prefs.find((p) => p.type === 'DailyReminder');
   if (dailyPref?.enabled) checks.push(checkDailyReminder(dailyPref.timeOfDay ?? '21:00'));
 
+  const balanceAlertPref = prefs.find((p) => p.type === 'AccountBalanceAlert');
+  if (balanceAlertPref?.enabled) checks.push(checkBalanceAlerts(userId));
+
   await Promise.allSettled(checks);
   await writeSWState('lastNotificationCheck', new Date().toISOString());
+}
+
+// ---------------------------------------------------------------------------
+// Budget alerts
+// ---------------------------------------------------------------------------
+
+async function checkBalanceAlerts(userId: UUID): Promise<void> {
+  const result = await evaluateAllAlertsForUser(userId);
+  if (!result.success) return;
+  const triggered = result.data.filter((r) => r.triggered);
+  if (triggered.length > 0) {
+    await sendAlertNotifications(triggered);
+  }
 }
 
 // ---------------------------------------------------------------------------

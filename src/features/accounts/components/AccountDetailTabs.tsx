@@ -10,12 +10,14 @@ import type { Account, AccountWithBalance } from '@/shared/types/account.types';
 import { ScopedTransactionList } from './ScopedTransactionList';
 import { ReconcileTab } from './ReconcileTab';
 import { AccountInfoTab } from './AccountInfoTab';
+import { AccountAlertsSection } from './AccountAlertsSection';
 
-type Tab = 'transactions' | 'reconcile' | 'info';
+type Tab = 'transactions' | 'reconcile' | 'alerts' | 'info';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'transactions', label: 'Transactions' },
   { id: 'reconcile', label: 'Reconcile' },
+  { id: 'alerts', label: 'Alerts' },
   { id: 'info', label: 'Info' },
 ];
 
@@ -37,8 +39,8 @@ export function AccountDetailTabs({ row, onDeleteRequest }: AccountDetailTabsPro
             type="button"
             onClick={() => { setActiveTab(tab.id); }}
             className={`py-3 px-1 mr-6 text-sm font-medium transition-colors duration-150 border-b-2 -mb-px ${activeTab === tab.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             aria-selected={activeTab === tab.id}
             role="tab"
@@ -60,6 +62,9 @@ export function AccountDetailTabs({ row, onDeleteRequest }: AccountDetailTabsPro
             currentBalance={row.currentBalance}
             onReconcileComplete={() => { setActiveTab('transactions'); }}
           />
+        )}
+        {activeTab === 'alerts' && (
+          <AccountAlertsSection accountId={row.account.id} currency={row.account.currency} />
         )}
         {activeTab === 'info' && (
           <AccountInfoTab row={row} onDeleteRequest={onDeleteRequest} />

@@ -7,7 +7,8 @@ export type NotificationType =
   | 'GoalReminder'
   | 'GoalBehindTarget'
   | 'WeeklySummary'
-  | 'DailyReminder';
+  | 'DailyReminder'
+  | 'AccountBalanceAlert';
 
 export type NotificationPreference = {
   readonly type: NotificationType;

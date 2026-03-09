@@ -5,7 +5,7 @@
  * Uses a custom Toggle (switch) component built inline.
  */
 
-import { Bell, BellDot, BellOff, TrendingUp, CalendarDays, BarChart2, Send, AlarmClock } from 'lucide-react';
+import { Bell, BellDot, BellOff, TrendingUp, CalendarDays, BarChart2, Send, AlarmClock, Wallet } from 'lucide-react';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsCard } from '../components/SettingsCard';
 import { SettingsRow } from '../components/SettingsRow';
@@ -157,6 +157,7 @@ export function NotificationsSection() {
   const goalPref = getPref(notificationPreferences, 'GoalReminder');
   const weeklySummaryPref = getPref(notificationPreferences, 'WeeklySummary');
   const dailyReminderPref = getPref(notificationPreferences, 'DailyReminder');
+  const balanceAlertPref = getPref(notificationPreferences, 'AccountBalanceAlert');
 
   async function toggle(type: NotificationType, enabled: boolean) {
     if (enabled && notificationPermission === 'default' && isNotificationSupported()) {
@@ -305,6 +306,15 @@ export function NotificationsSection() {
             />
           </div>
         </NotificationRow>
+
+        {/* Account Balance Alerts */}
+        <NotificationRow
+          pref={balanceAlertPref}
+          onToggle={(enabled) => { void toggle('AccountBalanceAlert', enabled); }}
+          icon={<Wallet size={16} />}
+          label="Account Balance Alerts"
+          description="Get notified when an account balance crosses a threshold you've set."
+        />
 
         {/* Weekly Summary */}
         <NotificationRow

@@ -137,6 +137,15 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
         templatesStore.createIndex('lastUsedAt', 'lastUsedAt', { unique: false });
         templatesStore.createIndex('useCount', 'useCount', { unique: false });
       }
+      // -----------------------------------------------------------------------
+      // V8 → account_alerts object store (encrypted balance alert config)
+      // -----------------------------------------------------------------------
+      if (oldVersion < 8) {
+        const alertsStore = db.createObjectStore('account_alerts', { keyPath: 'id' });
+        alertsStore.createIndex('userId', 'userId', { unique: false });
+        alertsStore.createIndex('accountId', 'accountId', { unique: false });
+        alertsStore.createIndex('status', 'status', { unique: false });
+      }
     },
   });
 

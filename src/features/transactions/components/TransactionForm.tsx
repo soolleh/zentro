@@ -19,6 +19,8 @@ import { useAutofill } from '../hooks/useAutofill';
 import type { Account } from '@/shared/types/account.types';
 import { createTemplateManually } from '@/services/templates/template.service';
 import { useTemplateStore } from '@/app/stores/template.store';
+import { checkAlertsAfterTransaction } from '@/services/alerts/alert.service';
+import { getAccountBalance } from '@/services/accounts/account.service';
 
 type FormValues = {
   type: TransactionType;
@@ -245,6 +247,12 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
         onClose();
       } else {
         // Add mode
+        // Capture balance before the transaction for alert evaluation
+        let previousBalance = 0;
+        if (derivedKey && values.accountId) {
+          const balResult = await getAccountBalance(values.accountId as UUID, derivedKey);
+          if (balResult.success) previousBalance = balResult.data;
+        }
         const result = await transactionStorage.createTransaction(
           {
             userId: currentUser.id,
@@ -270,6 +278,8 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
           if (receiptResult.success) newTx = receiptResult.data;
         }
         addTransactionToList(newTx);
+        // Evaluate balance alerts after adding a transaction (fire-and-forget)
+        void checkAlertsAfterTransaction(currentUser.id as UUID, values.accountId as UUID, previousBalance);
         addToast({ type: 'success', message: 'Transaction added.' });
         onClose();
       }

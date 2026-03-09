@@ -5,8 +5,8 @@
  * All widgets are real-time computed from IndexedDB.
  */
 
-import { useState } from 'react';
-import { RefreshCw, LayoutTemplate } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, LayoutTemplate, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useCurrentUser } from '@/app/session.store';
@@ -25,6 +25,9 @@ import { QuickAddFAB } from '@/features/dashboard/components/QuickAddFAB';
 import { QuickUsePanel } from '@/features/templates/components/QuickUsePanel';
 import { useRecentTemplates, useQuickUsePanel, useTemplateStore } from '@/app/stores/template.store';
 import { ROUTES } from '@/app/routes.constants';
+import { useTriggeredAlerts, useAlertStore } from '@/app/stores/alert.store';
+import { evaluateAllAlertsForUser } from '@/services/alerts/alert.service';
+import { formatCurrency } from '@/shared/utils/currency.utils';
 
 // ---------------------------------------------------------------------------
 // Relative time helper
@@ -49,6 +52,22 @@ export function DashboardPage() {
   const { lastRefreshedAt, refresh } = useLastRefreshed();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
+
+  // Alert evaluation on mount
+  const setTriggeredAlerts = useAlertStore((s) => s.setTriggeredAlerts);
+  const snoozeAlert = useAlertStore((s) => s.snoozeAlert);
+  const { triggeredAlerts } = useTriggeredAlerts();
+
+  useEffect(() => {
+    if (!currentUser) return;
+    void (async () => {
+      const result = await evaluateAllAlertsForUser(currentUser.id);
+      if (result.success) {
+        setTriggeredAlerts(result.data.filter((r) => r.triggered));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
   // Load dashboard data on mount
   useDashboardData();
@@ -125,6 +144,48 @@ export function DashboardPage() {
               More
             </button>
           )}
+        </div>
+      )}
+
+      {/* Triggered balance alerts callout */}
+      {triggeredAlerts.length > 0 && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 px-4 py-3" role="alert">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" aria-hidden />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                {triggeredAlerts.length === 1 ? '1 balance alert triggered' : `${triggeredAlerts.length.toString()} balance alerts triggered`}
+              </p>
+              <ul className="mt-1.5 space-y-0.5">
+                {triggeredAlerts.slice(0, 3).map(({ alert }) => (
+                  <li key={alert.id} className="text-xs text-amber-700 dark:text-amber-300">
+                    {alert.label !== '' ? alert.label : `Balance ${alert.condition} ${formatCurrency(alert.threshold, alert.currency)}`}
+                  </li>
+                ))}
+                {triggeredAlerts.length > 3 && (
+                  <li className="text-xs text-amber-600 dark:text-amber-400">+{(triggeredAlerts.length - 3).toString()} more</li>
+                )}
+              </ul>
+            </div>
+          </div>
+          <div className="mt-2.5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                triggeredAlerts.forEach(({ alert }) => { void snoozeAlert(alert.id, 1); });
+              }}
+              className="text-xs font-medium text-amber-700 dark:text-amber-300 hover:underline"
+            >
+              Snooze all 1h
+            </button>
+            <button
+              type="button"
+              onClick={() => { void navigate(ROUTES.ACCOUNTS); }}
+              className="text-xs font-medium text-amber-700 dark:text-amber-300 hover:underline"
+            >
+              View accounts
+            </button>
+          </div>
         </div>
       )}
 
