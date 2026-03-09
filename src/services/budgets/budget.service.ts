@@ -196,8 +196,15 @@ export async function getBudgetUtilizationForCycle(
           if (prevTxResult.success) {
             for (const tx of prevTxResult.data) {
               if (tx.type !== 'Expense') continue;
+              // Credit to own category
               const existing = prevSpentByCategory.get(tx.categoryId) ?? 0;
               prevSpentByCategory.set(tx.categoryId, existing + tx.amount);
+              // Also credit to parent category so carry-forward works for parent budgets
+              const txCat = catMap.get(tx.categoryId);
+              if (txCat?.parentId != null) {
+                const parentExisting = prevSpentByCategory.get(txCat.parentId) ?? 0;
+                prevSpentByCategory.set(txCat.parentId, parentExisting + tx.amount);
+              }
             }
           }
         }
@@ -221,8 +228,14 @@ export async function getBudgetUtilizationForCycle(
       const category = catMap.get(budget.categoryId);
       if (category === undefined) continue;
 
+      // Collect matching category IDs: the budget's own category + any direct children
+      const childIds = catResult.data
+        .filter((c) => c.parentId === budget.categoryId)
+        .map((c) => c.id);
+      const matchIds = new Set<UUID>([budget.categoryId, ...childIds]);
+
       const budgetTx = txResult.data.filter(
-        (tx) => tx.categoryId === budget.categoryId && tx.type === 'Expense'
+        (tx) => matchIds.has(tx.categoryId) && tx.type === 'Expense'
       );
       const spent = budgetTx.reduce((s, tx) => s + tx.amount, 0);
 

@@ -23,21 +23,22 @@ Zentro is a production-grade, fully client-side personal finance application. It
 
 These principles govern every decision in this project. No feature, component, or architectural choice may violate them.
 
-| Principle | Mandate |
-|---|---|
-| Offline-first | The app must be fully functional with zero network access |
-| Privacy-first | No user data leaves the device — ever |
-| Encrypted at rest | All financial data encrypted before storage |
-| Performance | Must scale to one million+ transactions without degradation |
-| Installable | Must meet PWA installability criteria on all major platforms |
-| Multi-user | Multiple local user profiles per browser instance |
-| Accessibility | WCAG 2.1 AA minimum compliance |
+| Principle         | Mandate                                                      |
+| ----------------- | ------------------------------------------------------------ |
+| Offline-first     | The app must be fully functional with zero network access    |
+| Privacy-first     | No user data leaves the device — ever                        |
+| Encrypted at rest | All financial data encrypted before storage                  |
+| Performance       | Must scale to one million+ transactions without degradation  |
+| Installable       | Must meet PWA installability criteria on all major platforms |
+| Multi-user        | Multiple local user profiles per browser instance            |
+| Accessibility     | WCAG 2.1 AA minimum compliance                               |
 
 ---
 
 ## 3. TECHNOLOGY CONSTRAINTS
 
 ### 3.1 Mandated Stack
+
 - **Framework:** React 19 with TypeScript
 - **Build Tool:** Vite
 - **Styling:** Tailwind CSS with shadcn/ui component library
@@ -48,6 +49,7 @@ These principles govern every decision in this project. No feature, component, o
 - **Service Worker:** Workbox
 
 ### 3.2 Prohibited
+
 - No backend services of any kind
 - No REST or GraphQL APIs
 - No cloud storage (Firebase, Supabase, AWS, etc.)
@@ -58,6 +60,7 @@ These principles govern every decision in this project. No feature, component, o
 - No plaintext financial data anywhere in IndexedDB
 
 ### 3.3 TypeScript
+
 - Strict mode enforced (`strict: true` in tsconfig)
 - No `any` types permitted
 - All data models must be fully typed
@@ -123,11 +126,11 @@ The visual identity of Zentro is **Arctic Zinc** — a light, clinical, premium 
 
 ### 4.4 Responsive Breakpoints
 
-| Breakpoint | Behavior |
-|---|---|
-| < 640px | Mobile layout. Single column. Bottom navigation. |
-| 640px–1024px | Tablet. Sidebar collapses. Moderate density. |
-| > 1024px | Desktop. Persistent sidebar. Dense analytics. |
+| Breakpoint   | Behavior                                         |
+| ------------ | ------------------------------------------------ |
+| < 640px      | Mobile layout. Single column. Bottom navigation. |
+| 640px–1024px | Tablet. Sidebar collapses. Moderate density.     |
+| > 1024px     | Desktop. Persistent sidebar. Dense analytics.    |
 
 ---
 
@@ -244,12 +247,14 @@ All data written to IndexedDB must be encrypted. All data read from IndexedDB mu
 Zentro uses the Notifications API and/or Scheduled Tasks (where available) for local-only alerts. No remote push server is involved.
 
 **Notification types:**
+
 - Budget threshold alert (default trigger: 80% utilization)
 - Bill due reminder (3-day and 1-day advance)
 - Savings goal reminder (weekly, if goal is behind target)
 - Weekly financial summary (configurable day/time)
 
 **Degradation rules:**
+
 - If background APIs (Background Sync, Periodic Background Sync) are unavailable, evaluate notification triggers on app open.
 - If Notifications API is denied or unavailable, surface alerts as in-app banners instead.
 - Safari limitations must be handled silently — no error thrown, no broken state.
@@ -276,6 +281,7 @@ Each step must be completable independently. Skipping is not permitted during in
 The dashboard is the default authenticated landing page.
 
 **Required widgets (in priority order):**
+
 - Net worth summary (Total Assets − Total Liabilities)
 - Monthly income vs. expenses (current month)
 - Savings rate (current month)
@@ -299,17 +305,20 @@ All widgets must reflect real-time data from IndexedDB. No stale cache permitted
 - Custom categories supported. System categories are non-deletable.
 
 **Recurring transactions:**
+
 - Configurable frequency: daily, weekly, biweekly, monthly, yearly.
 - Auto-generate upcoming entries on app open (up to 90 days ahead).
 - User can edit or delete individual instances without breaking the series.
 
 **Bulk import:**
+
 - CSV import with interactive column mapping UI.
 - User maps CSV columns to Zentro fields before import.
 - Validation step with error summary before committing.
 - Duplicate detection based on date + amount + account combination.
 
 **Autofill:**
+
 - Suggest category and notes based on patterns from previous transactions.
 - Triggered by payee/description input.
 - Suggestions must be dismissible.
@@ -326,17 +335,20 @@ All widgets must reflect real-time data from IndexedDB. No stale cache permitted
 - Investment accounts display current value only (no live price feeds).
 
 **Net worth calculation:**
+
 - Assets: Cash, Bank, Investment accounts (positive balances).
 - Liabilities: Credit card outstanding balances, Loan outstanding balances.
 - Net worth = Total Assets − Total Liabilities.
 
 **Multi-currency:**
+
 - Each account can have its own currency.
 - Exchange rates are entered manually by the user.
 - All dashboard figures are converted to a user-selected base currency.
 - Exchange rate management available in Settings.
 
 **Reconciliation:**
+
 - User can mark an account as reconciled up to a specific date.
 - Reconciled transactions are visually differentiated.
 - Reconciliation does not lock or prevent edits — it is informational.
@@ -359,6 +371,7 @@ All widgets must reflect real-time data from IndexedDB. No stale cache permitted
 All reports are computed client-side from IndexedDB data.
 
 **Required report views:**
+
 - Monthly breakdown (income, expenses, savings by category)
 - Yearly overview (monthly trend bars)
 - Category distribution (donut/pie for expense categories)
@@ -367,11 +380,13 @@ All reports are computed client-side from IndexedDB data.
 - Savings rate over time (line chart)
 
 **Anomaly detection:**
+
 - Flag transactions that deviate significantly from a 3-month rolling average for that category.
 - Anomalies are surfaced as informational callouts — not hard blocks.
 - Sensitivity is not user-configurable in v1.
 
 **Performance requirement:**
+
 - All report computations must complete within 500ms for datasets up to 50,000 transactions.
 - Heavy computations must not block the main thread. Use Web Workers where necessary.
 - Charts must render without jank on mid-range mobile devices.
@@ -403,42 +418,47 @@ All reports are computed client-side from IndexedDB data.
 ### 8.9 Export & Backup
 
 **CSV Export:**
+
 - Export all transactions or filtered subset.
 - Columns: date, type, amount, currency, account, category, notes.
 
 **Encrypted Backup (default):**
+
 - Full IndexedDB snapshot encrypted with user's derived key.
 - File format: `.zentro` (custom extension).
 - Restore requires the user's password to decrypt.
 
 **Plain JSON Export (advanced):**
+
 - Unencrypted full data export.
 - Must display explicit warning before proceeding: "This file contains all your financial data in plaintext. Store it securely."
 
 **Import/Restore:**
+
 - Full backup restore from `.zentro` file.
 - Validates file integrity before committing.
 - Must warn user that restore will overwrite existing data.
 
 **Persistent notice in Export UI:**
+
 > "Your data is stored locally on this device and does not sync automatically. Regular backups are strongly recommended."
 
 ---
 
 ### 8.10 Settings
 
-| Setting | Description |
-|---|---|
-| Theme | Light / Dark / System |
-| Date Format | DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD |
-| Base Currency | User's primary display currency |
-| Budget Alert Threshold | Global default (percentage) |
-| Category Management | Add, rename, reorder, delete custom categories |
-| Exchange Rates | Manual entry per currency pair |
-| Biometric Setup | Enroll or remove biometric credential |
-| Inactivity Timeout | Configurable lock duration |
-| Notification Preferences | Toggle and configure each notification type |
-| Data & Backup | Export, import, delete account |
+| Setting                  | Description                                    |
+| ------------------------ | ---------------------------------------------- |
+| Theme                    | Light / Dark / System                          |
+| Date Format              | DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD             |
+| Base Currency            | User's primary display currency                |
+| Budget Alert Threshold   | Global default (percentage)                    |
+| Category Management      | Add, rename, reorder, delete custom categories |
+| Exchange Rates           | Manual entry per currency pair                 |
+| Biometric Setup          | Enroll or remove biometric credential          |
+| Inactivity Timeout       | Configurable lock duration                     |
+| Notification Preferences | Toggle and configure each notification type    |
+| Data & Backup            | Export, import, delete account                 |
 
 **Account deletion:** Permanently removes all data for that local profile. Requires password confirmation. Irreversible.
 
@@ -446,18 +466,18 @@ All reports are computed client-side from IndexedDB data.
 
 ## 9. PERFORMANCE REQUIREMENTS
 
-| Metric | Target |
-|---|---|
-| First Contentful Paint | < 1.5s on mid-range mobile (cached) |
-| Time to Interactive | < 2.5s on mid-range mobile (cached) |
-| Report computation (50k tx) | < 500ms |
-| Transaction list render (1000 items) | Virtualized — no full DOM render |
-| IndexedDB read (single record) | < 10ms |
-| Encryption/decryption per record | < 5ms |
-| Service worker install | < 3s on broadband |
-| Lighthouse PWA score | 100 |
-| Lighthouse Performance score | ≥ 90 |
-| Lighthouse Accessibility score | ≥ 95 |
+| Metric                               | Target                              |
+| ------------------------------------ | ----------------------------------- |
+| First Contentful Paint               | < 1.5s on mid-range mobile (cached) |
+| Time to Interactive                  | < 2.5s on mid-range mobile (cached) |
+| Report computation (50k tx)          | < 500ms                             |
+| Transaction list render (1000 items) | Virtualized — no full DOM render    |
+| IndexedDB read (single record)       | < 10ms                              |
+| Encryption/decryption per record     | < 5ms                               |
+| Service worker install               | < 3s on broadband                   |
+| Lighthouse PWA score                 | 100                                 |
+| Lighthouse Performance score         | ≥ 90                                |
+| Lighthouse Accessibility score       | ≥ 95                                |
 
 - Transaction lists must use virtual scrolling (windowed rendering).
 - Heavy computations (reports, anomaly detection) must run in Web Workers.
@@ -482,6 +502,7 @@ All reports are computed client-side from IndexedDB data.
 ## 11. BEST PRACTICES
 
 ### 11.1 Code Quality
+
 - Feature-based folder structure. No file-type-based folders (no `/components`, `/hooks` at root).
 - Each feature owns its components, hooks, types, and service calls.
 - Shared primitives live in `/shared` or `/ui`.
@@ -491,6 +512,7 @@ All reports are computed client-side from IndexedDB data.
 - All user-facing strings must be defined as constants — no hardcoded strings in JSX.
 
 ### 11.2 Testing Requirements
+
 - Unit tests for: all service layer functions, all crypto operations, all data transformation utilities.
 - Integration tests for: auth flow, transaction CRUD, budget calculations, CSV import.
 - Component tests for: all form components, all critical UI interactions.
@@ -498,12 +520,14 @@ All reports are computed client-side from IndexedDB data.
 - Minimum coverage: 80% on service and crypto layers.
 
 ### 11.3 Git & Commit Standards
+
 - Conventional Commits format enforced (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`).
 - Each commit must represent a single logical change.
 - No committed secrets, keys, or environment-specific values.
 - `.env` files are gitignored. A `.env.example` with placeholder values is committed.
 
 ### 11.4 Dependency Management
+
 - Minimize third-party dependencies. Prefer Web Platform APIs.
 - Every dependency must be actively maintained (last release < 12 months).
 - No dependencies with known high/critical CVEs.
@@ -511,6 +535,7 @@ All reports are computed client-side from IndexedDB data.
 - Prefer `pnpm` as package manager.
 
 ### 11.5 Build & Deployment
+
 - Production build must have: tree-shaking, code splitting, asset fingerprinting.
 - Bundle size target: < 300KB gzipped initial JS payload.
 - All routes code-split. No feature module bundled into the initial chunk.
@@ -518,6 +543,7 @@ All reports are computed client-side from IndexedDB data.
 - CI pipeline: lint → type-check → test → build → deploy.
 
 ### 11.6 Secrets & Environment
+
 - No API keys exist in this project (by design).
 - `VITE_APP_VERSION` is the only environment variable needed.
 - Build version injected at compile time for cache-busting and update detection.
@@ -578,7 +604,7 @@ These are permanently out of scope and must never be introduced:
 - Cross-device sync of any kind
 - Bank or financial institution API integrations
 - Live exchange rate feeds
-- Cloud storage or backup
+- Cloud storage or backup _(except optional encrypted Google Drive AppData backup — see section 14)_
 - Any backend service, serverless function, or edge worker
 - Remote push notification infrastructure
 - Machine learning model hosting
@@ -588,7 +614,82 @@ These are permanently out of scope and must never be introduced:
 
 ---
 
-## 14. DEFINITION OF DONE
+## 14. GOOGLE DRIVE CLOUD BACKUP (OPTIONAL FEATURE)
+
+Google Drive backup is an **optional, user-initiated** feature that stores encrypted `.zentro` backups in the user's private Google Drive AppData folder. No plaintext data ever leaves the device.
+
+### 14.1 Architecture Constraints
+
+- **No backend.** All OAuth2 is performed in-browser using the PKCE flow. There is no client secret.
+- **Scope: `drive.appdata` only.** Zentro can only read/write to its own private AppData folder. It cannot see the user's other Drive files.
+- **Encryption before upload.** The backup file is encrypted with the user's derived `CryptoKey` (AES-GCM 256-bit) before leaving the device. Google cannot decrypt it.
+- **Tokens encrypted at rest.** OAuth tokens are encrypted with the user's `CryptoKey` before storage in IndexedDB. They are never stored in localStorage or sessionStorage.
+- **Feature is entirely optional.** The app is fully functional without Google Drive connected.
+
+### 14.2 Environment Variables
+
+```
+VITE_GOOGLE_CLIENT_ID=<your_google_oauth2_client_id>
+VITE_GOOGLE_REDIRECT_URI=https://<your-domain>/oauth/callback
+```
+
+These must be set at build time. See `.env.example`. For local development, `VITE_GOOGLE_REDIRECT_URI` defaults to `http://localhost:5173/oauth/callback`.
+
+### 14.3 Google Cloud Console Setup
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com).
+2. Create or open a project.
+3. Enable the **Google Drive API**.
+4. Go to **OAuth consent screen** → configure app name, support email, and add scope `https://www.googleapis.com/auth/drive.appdata`.
+5. Go to **Credentials** → **Create OAuth client ID** → **Web application**.
+6. Add to **Authorized JavaScript origins**: `https://<your-domain>` (and `http://localhost:5173` for development).
+7. Add to **Authorized redirect URIs**: `https://<your-domain>/oauth/callback` (and `http://localhost:5173/oauth/callback` for development).
+8. Copy the **Client ID** into `VITE_GOOGLE_CLIENT_ID`.
+
+> **Note:** Because Zentro uses a hash router (`/#/route`), Google's redirect hits `/oauth/callback` (non-hash). A redirect shim in `src/main.tsx` converts this to `/#/oauth/callback` before React renders.
+
+### 14.4 Key Files
+
+| File                                              | Purpose                                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `src/config/env.ts`                               | Centralised env var access                                                                                 |
+| `src/services/storage/google-tokens.storage.ts`   | Encrypted token persistence in IndexedDB                                                                   |
+| `src/services/google/oauth.service.ts`            | OAuth2 PKCE flow — `initiateOAuthFlow`, `handleOAuthCallback`, `refreshAccessToken`, `getValidAccessToken` |
+| `src/services/google/drive.service.ts`            | Drive REST API v3 wrapper — `uploadFile`, `listFiles`, `downloadFile`, `deleteFile`                        |
+| `src/services/google/drive-backup.service.ts`     | Backup orchestration — `runBackup`, `pruneOldBackups`, `listBackups`, `restoreFromBackup`                  |
+| `src/app/stores/drive-backup.store.ts`            | Zustand store — `useDriveBackup()`, `useDriveBackupList()`, `useDriveRestore()`, `useDriveRestoreFlow()`   |
+| `src/features/google/components/`                 | UI: `GoogleDriveIcon`, `BackupListPanel`, `RestoreConfirmDialog`, `DriveRestorePrompt`                     |
+| `src/features/google/pages/OAuthCallbackPage.tsx` | OAuth callback handler — dual-mode (authenticated save vs unauthenticated restore)                         |
+
+### 14.5 Backup Lifecycle
+
+- **Frequency:** Once per day minimum (checked on app open via `shouldRunBackup`).
+- **Retention:** Last 7 backups are kept. Older files are pruned automatically after each backup.
+- **Auto-backup:** `DriveBackupInitializer` in `src/app/providers.tsx` triggers a silent backup 5 seconds after authentication if the daily threshold has passed.
+- **Manual backup:** "Back up now" button in Settings → Data & Backup.
+
+### 14.6 Restore Flow
+
+1. User on a fresh device clicks **"Restore from Google Drive"** on the Login page (shown only when no local accounts exist).
+2. OAuth flow completes. `OAuthCallbackPage` stores tokens in Zustand memory (not IDB — no CryptoKey yet).
+3. User is redirected to Login page. `BackupListPanel` opens automatically.
+4. User selects a backup and enters their **password** (used to decrypt the `.zentro` file via `importEncryptedBackup`).
+5. On success, the local account is restored and the user can log in normally.
+
+### 14.7 IDB Schema
+
+The `google_tokens` store (added in DB version 5) stores one record per user:
+
+```ts
+interface GoogleTokenRecord {
+  userId: string; // keyPath
+  data: string; // base64-encoded IV + AES-GCM ciphertext (SerializedEncryptedPayload format)
+}
+```
+
+---
+
+## 15. DEFINITION OF DONE
 
 A feature is considered complete when:
 
@@ -605,4 +706,4 @@ A feature is considered complete when:
 
 ---
 
-*Last updated: March 2026 — Arctic Zinc theme confirmed. Stack locked.*
+_Last updated: March 2026 — Arctic Zinc theme confirmed. Stack locked._

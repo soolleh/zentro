@@ -219,17 +219,22 @@ export function TransactionsPage() {
                   </span>
                 </div>
                 <div className="flex flex-col divide-y divide-border/30">
-                  {group.transactions.map((tx) => (
-                    <TransactionRow
-                      key={tx.id}
-                      transaction={tx}
-                      category={categoryMap.get(tx.categoryId as UUID)}
-                      account={accountMap.get(tx.accountId as UUID)}
-                      onPress={() => { openPanel('view', tx); }}
-                      onDelete={() => { openPanel('view', tx); }}
-                      onEdit={() => { openPanel('edit', tx); }}
-                    />
-                  ))}
+                  {group.transactions.map((tx) => {
+                    const cat = categoryMap.get(tx.categoryId as UUID);
+                    const parentCat = cat?.parentId ? categoryMap.get(cat.parentId as UUID) : undefined;
+                    return (
+                      <TransactionRow
+                        key={tx.id}
+                        transaction={tx}
+                        category={cat}
+                        parentCategory={parentCat}
+                        account={accountMap.get(tx.accountId as UUID)}
+                        onPress={() => { openPanel('view', tx); }}
+                        onDelete={() => { openPanel('view', tx); }}
+                        onEdit={() => { openPanel('edit', tx); }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             ))}

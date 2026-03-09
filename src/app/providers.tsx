@@ -21,6 +21,8 @@ import {
 } from '@/app/stores/session.store';
 import { userStorage } from '@/services/storage/user.storage';
 import { settingsStorage } from '@/services/storage/settings.storage';
+import { useDriveBackupStore } from '@/app/stores/drive-backup.store';
+import { shouldRunBackup } from '@/services/google/drive-backup.service';
 import type { UUID } from '@/shared/types/common.types';
 import { LoadingSpinner } from '@/app/LoadingSpinner';
 
@@ -328,9 +330,50 @@ function NotificationInitializer() {
 }
 
 // ---------------------------------------------------------------------------
+// --- Drive Backup Initializer --- silently runs backup 5s after login
+//     if 24+ hours have passed since the last backup.
+//     Failures are always silent — never block the app or show user-facing errors.
+// ---------------------------------------------------------------------------
+function DriveBackupInitializer() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isLocked = useSessionStore((s) => s.isLocked);
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocked || !currentUser) {
+      hasRun.current = false;
+      return;
+    }
+    if (hasRun.current) return;
+    hasRun.current = true;
+
+    const userId = currentUser.id as UUID;
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const shouldBackup = await shouldRunBackup(userId);
+          if (!shouldBackup) return;
+          const store = useDriveBackupStore.getState();
+          const isConnected = await store.initialize(userId);
+          if (!isConnected) return;
+          store.runBackup(userId).catch(() => undefined);
+        } catch {
+          // Silent failure — Drive backup never blocks the app
+        }
+      })();
+    }, 5_000);
+
+    return () => { clearTimeout(timer); };
+  }, [isAuthenticated, isLocked, currentUser]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // --- Session Logout Resetter ---
-// Reactively resets the preferences store whenever the user logs out so that
 // stale {isLoaded: true, onboardingCompletedAt: null} state from a prior
 // mid-onboarding session can never trigger a spurious onboarding redirect
 // on the next login.
@@ -413,6 +456,7 @@ export function Providers() {
           <SWStateSync />
           <PeriodicSyncRegistrar />
           <NotificationInitializer />
+          <DriveBackupInitializer />
           <RecurringTransactionInitializer />
           <BillEntryInitializer />
           <DashboardInitializer />

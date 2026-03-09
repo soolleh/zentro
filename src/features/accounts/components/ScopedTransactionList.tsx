@@ -140,8 +140,8 @@ export function ScopedTransactionList({ accountId, account }: ScopedTransactionL
               type="button"
               onClick={() => { setTypeFilter(value); }}
               className={`h-full px-2 text-xs font-medium transition-colors duration-150 ${typeFilter === value
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
                 }`}
             >
               {label}
@@ -169,20 +169,25 @@ export function ScopedTransactionList({ accountId, account }: ScopedTransactionL
                   })}
                 </span>
               </div>
-              {group.transactions.map((tx) => (
-                <TransactionRow
-                  key={tx.id}
-                  transaction={tx}
-                  category={categories.get(tx.categoryId)}
-                  account={account}
-                  onPress={() => { /* detail handled by parent */ }}
-                  onEdit={() => { /* edit via parent panel */ }}
-                  onDelete={() => {
-                    // Refresh list after delete
-                    setTick((t) => t + 1);
-                  }}
-                />
-              ))}
+              {group.transactions.map((tx) => {
+                const cat = categories.get(tx.categoryId);
+                const parentCat = cat?.parentId ? categories.get(cat.parentId) : undefined;
+                return (
+                  <TransactionRow
+                    key={tx.id}
+                    transaction={tx}
+                    category={cat}
+                    parentCategory={parentCat}
+                    account={account}
+                    onPress={() => { /* detail handled by parent */ }}
+                    onEdit={() => { /* edit via parent panel */ }}
+                    onDelete={() => {
+                      // Refresh list after delete
+                      setTick((t) => t + 1);
+                    }}
+                  />
+                );
+              })}
             </div>
           ))
         )}

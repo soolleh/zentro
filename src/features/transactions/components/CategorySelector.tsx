@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Check, ChevronDown, Search, Tag, Plus } from 'lucide-react';
-import type { Category } from '@/shared/types/category.types';
+import type { Category, FlatCategoryOption } from '@/shared/types/category.types';
 import type { TransactionType } from '@/shared/types/transaction.types';
 import type { UUID, ISODateString } from '@/shared/types/common.types';
 import { categoryStorage } from '@/services/storage/category.storage';
+import { buildCategoryTree, flattenCategoryTree } from '@/services/categories/category.service';
 import { useDerivedKey, useCurrentUser } from '@/app/stores/session.store';
 import { generateUUID } from '@/services/crypto/crypto.utils';
 
@@ -23,6 +24,7 @@ export function CategorySelector({
   error,
 }: CategorySelectorProps) {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [flatOptions, setFlatOptions] = useState<FlatCategoryOption[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -35,7 +37,13 @@ export function CategorySelector({
   const loadCategories = () => {
     if (!currentUser || !derivedKey) return;
     void categoryStorage.listCategoriesByUser(currentUser.id, derivedKey).then(
-      (result) => { if (result.success) setCategories(result.data); }
+      (result) => {
+        if (result.success) {
+          setCategories(result.data);
+          const tree = buildCategoryTree(result.data);
+          setFlatOptions(flattenCategoryTree(tree, transactionType));
+        }
+      }
     );
   };
 
@@ -57,18 +65,16 @@ export function CategorySelector({
   }, [isOpen]);
 
   const filtered = useMemo(() => {
-    let list = categories;
-    if (transactionType) {
-      list = list.filter((c) => !c.transactionType || c.transactionType === transactionType);
-    }
+    let list = flatOptions;
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter((c) => c.name.toLowerCase().includes(q));
+      list = list.filter((o) => o.label.toLowerCase().includes(q));
     }
     return list;
-  }, [categories, transactionType, search]);
+  }, [flatOptions, search]);
 
-  const selectedCategory = categories.find((c) => c.id === value) ?? null;
+  const selectedOption = flatOptions.find((o) => o.category.id === value) ?? null;
+  const selectedCategory = selectedOption?.category ?? null;
 
   const handleCreateCategory = () => {
     if (!currentUser || !derivedKey || !newCategoryName.trim()) return;
@@ -113,7 +119,7 @@ export function CategorySelector({
                 style={{ backgroundColor: selectedCategory.color }}
               />
               <span className="flex-1 truncate text-foreground font-medium">
-                {selectedCategory.name}
+                {selectedOption?.label ?? selectedCategory.name}
               </span>
             </>
           ) : (
@@ -149,29 +155,34 @@ export function CategorySelector({
                   No categories found
                 </div>
               ) : (
-                filtered.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => {
-                      onChange(category.id);
-                      setIsOpen(false);
-                      setSearch('');
-                    }}
-                    className="flex items-center gap-2 px-3 py-2.5 w-full text-left hover:bg-muted/50 transition-colors duration-100"
-                  >
-                    <span
-                      className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <span className="text-sm font-medium text-foreground flex-1">
-                      {category.name}
-                    </span>
-                    {category.id === value && (
-                      <Check className="w-4 h-4 text-primary" />
-                    )}
-                  </button>
-                ))
+                filtered.map((opt) => {
+                  const isSubcat = opt.depth === 1;
+                  return (
+                    <button
+                      key={opt.category.id}
+                      type="button"
+                      onClick={() => {
+                        onChange(opt.category.id);
+                        setIsOpen(false);
+                        setSearch('');
+                      }}
+                      className={`flex items-center gap-2 w-full text-left hover:bg-muted/50 transition-colors duration-100 ${isSubcat ? 'pl-7 pr-3 py-2' : 'px-3 py-2.5'
+                        }`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: opt.category.color, opacity: isSubcat ? 0.75 : 1 }}
+                      />
+                      <span className={`text-sm flex-1 ${isSubcat ? 'text-muted-foreground' : 'font-medium text-foreground'
+                        }`}>
+                        {opt.category.name}
+                      </span>
+                      {opt.category.id === value && (
+                        <Check className="w-4 h-4 text-primary shrink-0" />
+                      )}
+                    </button>
+                  );
+                })
               )}
             </div>
 

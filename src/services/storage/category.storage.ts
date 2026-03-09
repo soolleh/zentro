@@ -28,6 +28,7 @@ export const categoryStorage = {
         id: category.id,
         userId: category.userId,
         isSystem: category.isSystem ? 1 : 0,
+        ...(category.parentId != null ? { parentId: category.parentId } : {}),
         data: encrypted.data.data,
       });
       return { success: true, data: category };
@@ -83,6 +84,7 @@ export const categoryStorage = {
         id: category.id,
         userId: category.userId,
         isSystem: category.isSystem ? 1 : 0,
+        ...(category.parentId != null ? { parentId: category.parentId } : {}),
         data: encrypted.data.data,
       });
       return { success: true, data: category };
@@ -103,11 +105,66 @@ export const categoryStorage = {
       if (record.isSystem === 1) {
         return makeError('CATEGORY_SYSTEM_DELETE', 'System categories cannot be deleted.');
       }
+      // Block deletion if this parent has children
+      const children = await db.getAllFromIndex('categories', 'parentId', id);
+      if (children.length > 0) {
+        return makeError(
+          'CATEGORY_HAS_CHILDREN',
+          'Delete or reassign sub-categories before removing this category.'
+        );
+      }
       await db.delete('categories', id);
       return { success: true, data: undefined };
     } catch (err) {
       const cause = err instanceof Error ? err.message : String(err);
       return makeError('CATEGORY_DELETE_FAILED', `Failed to delete category. Cause: ${cause}`, err);
+    }
+  },
+
+  async listSubcategoriesByParent(parentId: UUID, key: CryptoKey): Promise<Result<Category[]>> {
+    try {
+      const db = await getDB();
+      const records = await db.getAllFromIndex('categories', 'parentId', parentId);
+      const categories: Category[] = [];
+      for (const record of records) {
+        const result = await decryptData<Category>(key, { data: record.data });
+        if (!result.success) return result;
+        categories.push(result.data);
+      }
+      categories.sort((a, b) => a.name.localeCompare(b.name));
+      return { success: true, data: categories };
+    } catch (err) {
+      return makeError('CATEGORY_LIST_FAILED', 'Failed to list sub-categories.', err);
+    }
+  },
+
+  async listTopLevelCategories(
+    userId: UUID,
+    key: CryptoKey,
+    type?: import('@/shared/types/category.types').Category['transactionType']
+  ): Promise<Result<Category[]>> {
+    try {
+      const db = await getDB();
+      const records = await db.getAllFromIndex('categories', 'userId', userId);
+      const categories: Category[] = [];
+      for (const record of records) {
+        // Top-level: no parentId index entry (undefined = not stored = top-level)
+        if (record.parentId != null) continue;
+        const result = await decryptData<Category>(key, { data: record.data });
+        if (!result.success) return result;
+        const cat = result.data;
+        // Also treat parentId null/undefined as top-level
+        if ((cat.parentId ?? null) !== null) continue;
+        if (type !== undefined && cat.transactionType !== type) continue;
+        categories.push(cat);
+      }
+      categories.sort((a, b) => {
+        const orderDiff = a.sortOrder - b.sortOrder;
+        return orderDiff !== 0 ? orderDiff : a.name.localeCompare(b.name);
+      });
+      return { success: true, data: categories };
+    } catch (err) {
+      return makeError('CATEGORY_LIST_FAILED', 'Failed to list top-level categories.', err);
     }
   },
 };

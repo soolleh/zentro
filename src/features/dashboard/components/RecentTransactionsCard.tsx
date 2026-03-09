@@ -85,17 +85,22 @@ export function RecentTransactionsCard() {
         </div>
       ) : (
         <div className="flex flex-col divide-y divide-border -mx-5">
-          {recentTransactions.map((tx) => (
-            <TransactionRow
-              key={tx.id}
-              transaction={tx}
-              category={categoryMap.get(tx.categoryId)}
-              account={accountMap.get(tx.accountId)}
-              onPress={() => { handlePress(tx); }}
-              onEdit={() => { handleEdit(tx); }}
-              onDelete={() => { /* no-op on dashboard */ }}
-            />
-          ))}
+          {recentTransactions.map((tx) => {
+            const cat = categoryMap.get(tx.categoryId);
+            const parentCat = cat?.parentId ? categoryMap.get(cat.parentId) : undefined;
+            return (
+              <TransactionRow
+                key={tx.id}
+                transaction={tx}
+                category={cat}
+                parentCategory={parentCat}
+                account={accountMap.get(tx.accountId)}
+                onPress={() => { handlePress(tx); }}
+                onEdit={() => { handleEdit(tx); }}
+                onDelete={() => { /* no-op on dashboard */ }}
+              />
+            );
+          })}
         </div>
       )}
     </DashboardCard>

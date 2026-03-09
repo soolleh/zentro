@@ -74,6 +74,11 @@ const BillsPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/features/settings/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
+const OAuthCallbackPage = lazy(() =>
+  import('@/features/google/pages/OAuthCallbackPage').then((m) => ({
+    default: m.OAuthCallbackPage,
+  })),
+);
 
 function withSuspense(Component: React.ComponentType) {
   return (
@@ -98,6 +103,11 @@ export const router = createHashRouter([
   {
     path: ROUTES.REGISTER,
     element: withSuspense(RegisterPage),
+  },
+  // OAuth callback — public (accessible without authentication for restore flow)
+  {
+    path: ROUTES.OAUTH_CALLBACK,
+    element: withSuspense(OAuthCallbackPage),
   },
 
   // Protected routes — all require authentication

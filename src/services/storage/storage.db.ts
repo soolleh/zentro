@@ -12,7 +12,7 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
   if (dbPromise !== null) return dbPromise;
 
   dbPromise = openDB<ZentroDBSchema>(DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion) {
+    upgrade(db, oldVersion, _newVersion, transaction) {
       // -----------------------------------------------------------------------
       // V1 → initial schema
       // -----------------------------------------------------------------------
@@ -108,6 +108,25 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
       // -----------------------------------------------------------------------
       if (oldVersion < 4) {
         db.createObjectStore('sw_state', { keyPath: 'key' });
+      }
+      // -----------------------------------------------------------------------
+      // V5 → google_tokens object store (encrypted OAuth2 tokens per user)
+      // -----------------------------------------------------------------------
+      if (oldVersion < 5) {
+        db.createObjectStore('google_tokens', { keyPath: 'userId' });
+      }
+      // -----------------------------------------------------------------------
+      // V6 → parentId index on categories store (sub-category support)
+      // System sub-categories are seeded lazily on first authenticated loadCategories
+      // because they require the user's derived key for encryption.
+      // -----------------------------------------------------------------------
+      if (oldVersion < 6) {
+        if (db.objectStoreNames.contains('categories')) {
+          const catStore = transaction.objectStore('categories');
+          if (!catStore.indexNames.contains('parentId')) {
+            catStore.createIndex('parentId', 'parentId', { unique: false });
+          }
+        }
       }
     },
   });

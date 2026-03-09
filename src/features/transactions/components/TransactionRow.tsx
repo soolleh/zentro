@@ -10,6 +10,8 @@ import type { Account } from '@/shared/types/account.types';
 type TransactionRowProps = {
   transaction: Transaction;
   category?: Category;
+  /** Pass when category is a sub-category to show "Parent › Child" label */
+  parentCategory?: Category;
   account?: Account;
   onPress: () => void;
   onEdit: () => void;
@@ -36,6 +38,7 @@ const ACTION_THRESHOLD = 160;
 export function TransactionRow({
   transaction,
   category,
+  parentCategory,
   account,
   onPress,
   onEdit,
@@ -176,7 +179,9 @@ export function TransactionRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-foreground truncate">
-              {category?.name ?? 'Uncategorized'}
+              {parentCategory
+                ? `${parentCategory.name} › ${category?.name ?? ''}`
+                : (category?.name ?? 'Uncategorized')}
             </span>
             {transaction.recurringRuleId && (
               <span className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground whitespace-nowrap shrink-0">

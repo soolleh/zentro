@@ -14,7 +14,8 @@ function systemCategory(
   name: string,
   icon: string,
   color: string,
-  sortOrder: number
+  sortOrder: number,
+  parentId?: UUID
 ): Category {
   return {
     id,
@@ -25,7 +26,18 @@ function systemCategory(
     isSystem: true,
     sortOrder,
     createdAt: SYSTEM_CREATED_AT,
+    ...(parentId != null ? { parentId } : {}),
   };
+}
+
+function systemSubcategory(
+  id: UUID,
+  name: string,
+  icon: string,
+  sortOrder: number,
+  parentId: UUID
+): Category {
+  return systemCategory(id, name, icon, '#0891b2', sortOrder, parentId);
 }
 
 // --- Income ---
@@ -184,6 +196,123 @@ export const CATEGORY_TRANSFER = systemCategory(
 );
 
 // --- Grouped exports ---
+
+// --- System sub-categories ---
+// Food & Dining sub-categories
+export const SUBCATEGORY_GROCERIES = systemSubcategory(
+  '21000000-0000-0000-0000-000000000001' as UUID,
+  'Groceries',
+  'shopping-cart',
+  100,
+  '20000000-0000-0000-0000-000000000001' as UUID
+);
+export const SUBCATEGORY_RESTAURANTS = systemSubcategory(
+  '21000000-0000-0000-0000-000000000002' as UUID,
+  'Restaurants',
+  'utensils',
+  101,
+  '20000000-0000-0000-0000-000000000001' as UUID
+);
+export const SUBCATEGORY_COFFEE_DRINKS = systemSubcategory(
+  '21000000-0000-0000-0000-000000000003' as UUID,
+  'Coffee & Drinks',
+  'coffee',
+  102,
+  '20000000-0000-0000-0000-000000000001' as UUID
+);
+
+// Transport sub-categories
+export const SUBCATEGORY_FUEL = systemSubcategory(
+  '21000000-0000-0000-0000-000000000004' as UUID,
+  'Fuel',
+  'fuel',
+  110,
+  '20000000-0000-0000-0000-000000000002' as UUID
+);
+export const SUBCATEGORY_PUBLIC_TRANSIT = systemSubcategory(
+  '21000000-0000-0000-0000-000000000005' as UUID,
+  'Public Transit',
+  'bus',
+  111,
+  '20000000-0000-0000-0000-000000000002' as UUID
+);
+export const SUBCATEGORY_PARKING = systemSubcategory(
+  '21000000-0000-0000-0000-000000000006' as UUID,
+  'Parking',
+  'square-parking',
+  112,
+  '20000000-0000-0000-0000-000000000002' as UUID
+);
+export const SUBCATEGORY_RIDE_SHARE = systemSubcategory(
+  '21000000-0000-0000-0000-000000000007' as UUID,
+  'Ride Share',
+  'car',
+  113,
+  '20000000-0000-0000-0000-000000000002' as UUID
+);
+
+// Housing sub-categories
+export const SUBCATEGORY_RENT_MORTGAGE = systemSubcategory(
+  '21000000-0000-0000-0000-000000000008' as UUID,
+  'Rent / Mortgage',
+  'home',
+  120,
+  '20000000-0000-0000-0000-000000000003' as UUID
+);
+export const SUBCATEGORY_HOUSING_UTILITIES = systemSubcategory(
+  '21000000-0000-0000-0000-000000000009' as UUID,
+  'Utilities',
+  'zap',
+  121,
+  '20000000-0000-0000-0000-000000000003' as UUID
+);
+export const SUBCATEGORY_MAINTENANCE = systemSubcategory(
+  '21000000-0000-0000-0000-000000000010' as UUID,
+  'Maintenance',
+  'wrench',
+  122,
+  '20000000-0000-0000-0000-000000000003' as UUID
+);
+
+// Shopping sub-categories
+export const SUBCATEGORY_CLOTHING = systemSubcategory(
+  '21000000-0000-0000-0000-000000000011' as UUID,
+  'Clothing',
+  'shirt',
+  130,
+  '20000000-0000-0000-0000-000000000007' as UUID
+);
+export const SUBCATEGORY_ELECTRONICS = systemSubcategory(
+  '21000000-0000-0000-0000-000000000012' as UUID,
+  'Electronics',
+  'monitor',
+  131,
+  '20000000-0000-0000-0000-000000000007' as UUID
+);
+export const SUBCATEGORY_HOME_GARDEN = systemSubcategory(
+  '21000000-0000-0000-0000-000000000013' as UUID,
+  'Home & Garden',
+  'flower-2',
+  132,
+  '20000000-0000-0000-0000-000000000007' as UUID
+);
+
+export const SYSTEM_SUBCATEGORIES: readonly Category[] = [
+  SUBCATEGORY_GROCERIES,
+  SUBCATEGORY_RESTAURANTS,
+  SUBCATEGORY_COFFEE_DRINKS,
+  SUBCATEGORY_FUEL,
+  SUBCATEGORY_PUBLIC_TRANSIT,
+  SUBCATEGORY_PARKING,
+  SUBCATEGORY_RIDE_SHARE,
+  SUBCATEGORY_RENT_MORTGAGE,
+  SUBCATEGORY_HOUSING_UTILITIES,
+  SUBCATEGORY_MAINTENANCE,
+  SUBCATEGORY_CLOTHING,
+  SUBCATEGORY_ELECTRONICS,
+  SUBCATEGORY_HOME_GARDEN,
+];
+
 export const INCOME_CATEGORIES: readonly Category[] = [
   CATEGORY_SALARY,
   CATEGORY_FREELANCE,
@@ -214,4 +343,5 @@ export const ALL_SYSTEM_CATEGORIES: readonly Category[] = [
   ...INCOME_CATEGORIES,
   ...EXPENSE_CATEGORIES,
   ...TRANSFER_CATEGORIES,
+  ...SYSTEM_SUBCATEGORIES,
 ];

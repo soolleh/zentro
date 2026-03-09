@@ -37,6 +37,7 @@ export type CategoryRecord = {
   id: string;
   userId: string;
   isSystem: number; // 1 = true, 0 = false (IDB index limitation)
+  parentId?: string; // plaintext for index; undefined = top-level
 } & SerializedEncryptedPayload;
 
 export type BudgetRecord = {
@@ -101,6 +102,16 @@ export type SWStateRecord = {
   value: unknown;
 };
 
+/**
+ * google_tokens — encrypted Google OAuth2 tokens per user.
+ * keyPath: userId (plaintext). `data` is the base64 combined iv+ciphertext
+ * produced by encryptData from crypto.service (same format as all other stores).
+ */
+export type GoogleTokenRecord = {
+  userId: string;
+  data: string; // base64 combined iv+ciphertext
+};
+
 export interface ZentroDBSchema extends DBSchema {
   users: {
     key: string;
@@ -137,7 +148,7 @@ export interface ZentroDBSchema extends DBSchema {
   categories: {
     key: string;
     value: CategoryRecord;
-    indexes: { userId: string; isSystem: number };
+    indexes: { userId: string; isSystem: number; parentId: string };
   };
   budgets: {
     key: string;
@@ -182,6 +193,11 @@ export interface ZentroDBSchema extends DBSchema {
   sw_state: {
     key: string;
     value: SWStateRecord;
+    indexes: Record<never, never>;
+  };
+  google_tokens: {
+    key: string;
+    value: GoogleTokenRecord;
     indexes: Record<never, never>;
   };
 }

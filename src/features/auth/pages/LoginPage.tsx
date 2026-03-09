@@ -4,6 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { Fingerprint, Info, Loader2 } from 'lucide-react';
+import { DriveRestorePrompt } from '@/features/google/components/DriveRestorePrompt';
+import { BackupListPanel } from '@/features/google/components/BackupListPanel';
+import { useDriveRestoreFlow } from '@/app/stores/drive-backup.store';
 import { AuthBackground } from '../components/AuthBackground';
 import { AuthWordmark } from '../components/AuthWordmark';
 import { AuthCard } from '../components/AuthCard';
@@ -188,6 +191,17 @@ export function LoginPage() {
   const hasUsers = !loadingUsers && users.length > 0;
   const isBiometricAvailable = !!enrolledCredential && !!selectedUser;
 
+  // ── Drive restore flow ────────────────────────────────────────────────────
+  const { restoreTokens, clearRestoreSession } = useDriveRestoreFlow();
+  const [restorePanelOpen, setRestorePanelOpen] = useState(false);
+
+  // Auto-open the backup list panel when restore tokens land from OAuth callback
+  useEffect(() => {
+    if (restoreTokens) {
+      setRestorePanelOpen(true);
+    }
+  }, [restoreTokens]);
+
   return (
     <AuthBackground>
       <AuthCard>
@@ -356,6 +370,18 @@ export function LoginPage() {
           </Link>
         </p>
       </AuthCard>
+
+      {/* Drive restore prompt — shown on fresh device with no local accounts */}
+      {noAccounts && <DriveRestorePrompt />}
+
+      {/* Backup list panel — auto-opened after returning from OAuth restore flow */}
+      <BackupListPanel
+        open={restorePanelOpen}
+        onClose={() => {
+          setRestorePanelOpen(false);
+          clearRestoreSession();
+        }}
+      />
     </AuthBackground>
   );
 }

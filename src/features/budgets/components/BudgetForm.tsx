@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,6 +15,7 @@ import { useBudgetPanel, useBudgetStore } from '@/app/stores/budget.store';
 import { useBaseCurrency, usePreferencesStore } from '@/app/preferences.store';
 import { useUIStore } from '@/app/ui.store';
 import { categoryStorage } from '@/services/storage/category.storage';
+import { buildCategoryTree } from '@/services/categories/category.service';
 import { budgetStorage } from '@/services/storage/budget.storage';
 import { createBudgetForCycle } from '@/services/budgets/budget.service';
 import type { UUID } from '@/shared/types/common.types';
@@ -101,6 +102,8 @@ export function BudgetForm() {
     });
   }, [isPanelOpen, currentUser, derivedKey]);
 
+  const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
+
   // Reset form on open/close
   useEffect(() => {
     if (isPanelOpen) {
@@ -116,7 +119,32 @@ export function BudgetForm() {
   }, [isPanelOpen, activeBudget, defaultAlertThreshold, reset]);
 
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
-  const availableCategories = categories.filter((c) => !budgetedCategoryIds.has(c.id));
+  const availableNodes = categoryTree.expenses.filter((n) => !budgetedCategoryIds.has(n.category.id));
+
+  // Available category options shaped for the select
+  function renderCategoryOptions() {
+    const options: React.ReactNode[] = [];
+    const sourceNodes = availableNodes.filter((n) => n.children.length === 0);
+    const groupNodes = availableNodes.filter((n) => n.children.length > 0);
+
+    for (const node of sourceNodes) {
+      options.push(<option key={node.category.id} value={node.category.id}>{node.category.name}</option>);
+    }
+    for (const node of groupNodes) {
+      const availableChildren = node.children.filter((c) => !budgetedCategoryIds.has(c.id));
+      options.push(
+        <optgroup key={node.category.id} label={node.category.name}>
+          {!budgetedCategoryIds.has(node.category.id) && (
+            <option value={node.category.id}>All {node.category.name}</option>
+          )}
+          {availableChildren.map((child) => (
+            <option key={child.id} value={child.id}>{child.name}</option>
+          ))}
+        </optgroup>
+      );
+    }
+    return options;
+  }
 
   const onSubmit = async (values: FormValues) => {
     if (!currentUser || !derivedKey) return;
@@ -263,9 +291,7 @@ export function BudgetForm() {
                   className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="">Select a category</option>
-                  {availableCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+                  {renderCategoryOptions()}
                 </select>
                 {errors.categoryId !== undefined && (
                   <p className="text-xs text-destructive mt-1">{errors.categoryId.message}</p>
