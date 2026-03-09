@@ -6,8 +6,9 @@
  */
 
 import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, LayoutTemplate } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { useCurrentUser } from '@/app/session.store';
 import { useLastRefreshed } from '@/app/stores/dashboard.store';
 import { useGreeting } from '@/features/dashboard/hooks/useGreeting';
@@ -21,6 +22,9 @@ import { UpcomingBillsCard } from '@/features/dashboard/components/UpcomingBills
 import { GoalProgressCard } from '@/features/dashboard/components/GoalProgressCard';
 import { InsightsCard } from '@/features/dashboard/components/InsightsCard';
 import { QuickAddFAB } from '@/features/dashboard/components/QuickAddFAB';
+import { QuickUsePanel } from '@/features/templates/components/QuickUsePanel';
+import { useRecentTemplates, useQuickUsePanel, useTemplateStore } from '@/app/stores/template.store';
+import { ROUTES } from '@/app/routes.constants';
 
 // ---------------------------------------------------------------------------
 // Relative time helper
@@ -44,11 +48,18 @@ export function DashboardPage() {
   const currentUser = useCurrentUser();
   const { lastRefreshedAt, refresh } = useLastRefreshed();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const navigate = useNavigate();
 
   // Load dashboard data on mount
   useDashboardData();
 
   const { greeting, dateLabel } = useGreeting(currentUser?.displayName ?? 'there');
+
+  // Templates
+  const recentTemplates = useRecentTemplates(5);
+  const totalTemplates = useTemplateStore((s) => s.templates.length);
+  const isQuickUsePanelOpen = useTemplateStore((s) => s.isQuickUsePanelOpen);
+  const { openQuickUsePanel } = useQuickUsePanel();
 
   async function handleRefresh() {
     if (!currentUser || isRefreshing) return;
@@ -79,6 +90,43 @@ export function DashboardPage() {
           <span>Updated {formatRelative(lastRefreshedAt)}</span>
         </button>
       </div>
+
+      {/* Recent Templates strip */}
+      {recentTemplates.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 mb-4">
+          {recentTemplates.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              onClick={() => { openQuickUsePanel(template); }}
+              className="flex items-center gap-2 shrink-0 h-9 px-3 rounded-xl border border-border bg-card text-sm cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all duration-150 active:scale-[0.98]"
+            >
+              <span className="text-base" aria-hidden>{template.emoji}</span>
+              <span className="text-xs font-medium text-foreground">{template.name}</span>
+              {template.amount !== null && (
+                <span className="text-xs text-muted-foreground">
+                  {new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: template.currency,
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(template.amount)}
+                </span>
+              )}
+            </button>
+          ))}
+          {totalTemplates > 5 && (
+            <button
+              type="button"
+              onClick={() => { void navigate(ROUTES.TEMPLATES); }}
+              className="flex items-center gap-1 shrink-0 h-9 px-3 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+            >
+              <LayoutTemplate className="w-3.5 h-3.5" aria-hidden />
+              More
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Bento grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5">
@@ -125,6 +173,9 @@ export function DashboardPage() {
 
       {/* Mobile/tablet FAB */}
       <QuickAddFAB />
+
+      {/* Template quick-use panel */}
+      <QuickUsePanel open={isQuickUsePanelOpen} />
     </div>
   );
 }

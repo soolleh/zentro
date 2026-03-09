@@ -8,6 +8,7 @@ import {
   PiggyBank,
   BarChart3,
   CalendarClock,
+  LayoutTemplate,
   Settings,
   Lock,
   Plus,
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { label: 'Reports', to: ROUTES.REPORTS, icon: BarChart3 },
   { label: 'Goals', to: ROUTES.GOALS, icon: PiggyBank },
   { label: 'Bills', to: ROUTES.BILLS, icon: CalendarClock },
+  { label: 'Templates', to: ROUTES.TEMPLATES, icon: LayoutTemplate },
   { label: 'Settings', to: ROUTES.SETTINGS, icon: Settings },
 ] as const;
 

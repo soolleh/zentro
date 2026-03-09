@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Camera, X, ArrowRight, CornerDownLeft, AlertTriangle } from 'lucide-react';
+import { Camera, X, ArrowRight, CornerDownLeft, AlertTriangle, LayoutTemplate } from 'lucide-react';
 import type { Transaction, TransactionType, RecurringFrequency } from '@/shared/types/transaction.types';
 import type { UUID, ISODateString, Currency } from '@/shared/types/common.types';
 import { transactionStorage } from '@/services/storage/transaction.storage';
@@ -17,6 +17,8 @@ import { DatePicker } from './DatePicker';
 import { RecurringSubForm } from './RecurringSubForm';
 import { useAutofill } from '../hooks/useAutofill';
 import type { Account } from '@/shared/types/account.types';
+import { createTemplateManually } from '@/services/templates/template.service';
+import { useTemplateStore } from '@/app/stores/template.store';
 
 type FormValues = {
   type: TransactionType;
@@ -99,6 +101,13 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Save as template
+  const addTemplateToList = useTemplateStore((s) => s.addTemplateToList);
+  const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDesc, setTemplateDesc] = useState('');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
   const { register, control, watch, setValue, handleSubmit, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       type: transaction?.type ?? 'Expense',
@@ -119,6 +128,9 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
   const watchedIsRecurring = watch('isRecurring');
   const watchedFrequency = watch('recurringFrequency');
   const watchedEndDate = watch('recurringEndDate');
+  const watchedAmount = watch('amount');
+  const watchedAccountId = watch('accountId');
+  const watchedCategoryId = watch('categoryId');
 
   const { suggestion, clearSuggestion } = useAutofill(watchedNotes, {
     userId: (currentUser?.id ?? '') as UUID,
@@ -516,6 +528,21 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
             Delete transaction
           </button>
         )}
+        {!isEdit && (
+          <button
+            type="button"
+            onClick={() => {
+              const suggested = watchedNotes.trim() || '';
+              setTemplateName(suggested.slice(0, 50));
+              setTemplateDesc('');
+              setShowSaveAsTemplate(true);
+            }}
+            className="flex items-center justify-center gap-2 text-xs text-primary cursor-pointer hover:underline underline-offset-4 transition-colors duration-150"
+          >
+            <LayoutTemplate className="w-3.5 h-3.5" aria-hidden />
+            Save as template
+          </button>
+        )}
         <button
           type="submit"
           form="transaction-form"
@@ -545,6 +572,92 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
           }}
           onCancel={() => { setShowDeleteConfirm(false); }}
         />
+      )}
+
+      {/* Save as template dialog */}
+      {showSaveAsTemplate && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl p-5 w-full max-w-sm mx-4 flex flex-col gap-4 shadow-xl mb-4 sm:mb-0">
+            <h3 className="text-sm font-semibold text-foreground">Save as template</h3>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1" htmlFor="tpl-name-inline">
+                  Template name
+                </label>
+                <input
+                  id="tpl-name-inline"
+                  type="text"
+                  autoFocus
+                  placeholder="E.g. Monthly rent, Coffee run…"
+                  maxLength={50}
+                  value={templateName}
+                  onChange={(e) => { setTemplateName(e.target.value); }}
+                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1" htmlFor="tpl-desc-inline">
+                  Description{' '}
+                  <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <input
+                  id="tpl-desc-inline"
+                  type="text"
+                  placeholder="Optional description…"
+                  maxLength={100}
+                  value={templateDesc}
+                  onChange={(e) => { setTemplateDesc(e.target.value); }}
+                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={isSavingTemplate || !templateName.trim()}
+                onClick={async () => {
+                  if (!currentUser || !derivedKey || !templateName.trim()) return;
+                  setIsSavingTemplate(true);
+                  try {
+                    const result = await createTemplateManually(
+                      currentUser.id as UUID,
+                      {
+                        name: templateName.trim(),
+                        description: templateDesc.trim() || undefined,
+                        type: watchedType,
+                        amount: watchedAmount ? parseFloat(watchedAmount) : null,
+                        currency: (selectedAccount?.currency ?? baseCurrency) as Currency,
+                        accountId: watchedAccountId ? (watchedAccountId as UUID) : null,
+                        categoryId: watchedCategoryId ? (watchedCategoryId as UUID) : null,
+                        notes: watchedNotes || undefined,
+                      },
+                      derivedKey
+                    );
+                    if (result.success) {
+                      addTemplateToList(result.data);
+                      addToast({ message: 'Template saved.', type: 'success' });
+                      setShowSaveAsTemplate(false);
+                    } else {
+                      addToast({ message: result.error.message, type: 'error' });
+                    }
+                  } finally {
+                    setIsSavingTemplate(false);
+                  }
+                }}
+                className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {isSavingTemplate ? 'Saving…' : 'Save template'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowSaveAsTemplate(false); }}
+                className="text-sm text-muted-foreground hover:text-foreground text-center cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

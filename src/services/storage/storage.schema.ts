@@ -112,6 +112,14 @@ export type GoogleTokenRecord = {
   data: string; // base64 combined iv+ciphertext
 };
 
+export type TemplateRecord = {
+  id: string;
+  userId: string;
+  /** plaintext ISO date — null stored as empty string for index query */
+  lastUsedAt: string;
+  useCount: number;
+} & SerializedEncryptedPayload;
+
 export interface ZentroDBSchema extends DBSchema {
   users: {
     key: string;
@@ -199,5 +207,10 @@ export interface ZentroDBSchema extends DBSchema {
     key: string;
     value: GoogleTokenRecord;
     indexes: Record<never, never>;
+  };
+  templates: {
+    key: string;
+    value: TemplateRecord;
+    indexes: { userId: string; lastUsedAt: string; useCount: number };
   };
 }

@@ -128,6 +128,15 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
           }
         }
       }
+      // -----------------------------------------------------------------------
+      // V7 → templates object store (encrypted transaction templates)
+      // -----------------------------------------------------------------------
+      if (oldVersion < 7) {
+        const templatesStore = db.createObjectStore('templates', { keyPath: 'id' });
+        templatesStore.createIndex('userId', 'userId', { unique: false });
+        templatesStore.createIndex('lastUsedAt', 'lastUsedAt', { unique: false });
+        templatesStore.createIndex('useCount', 'useCount', { unique: false });
+      }
     },
   });
 

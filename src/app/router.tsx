@@ -74,6 +74,9 @@ const BillsPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/features/settings/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
+const TemplatesPage = lazy(() =>
+  import('@/features/templates/pages/TemplatesPage').then((m) => ({ default: m.TemplatesPage })),
+);
 const OAuthCallbackPage = lazy(() =>
   import('@/features/google/pages/OAuthCallbackPage').then((m) => ({
     default: m.OAuthCallbackPage,
@@ -179,6 +182,10 @@ export const router = createHashRouter([
           {
             path: ROUTES.BILLS,
             element: withSuspense(BillsPage),
+          },
+          {
+            path: ROUTES.TEMPLATES,
+            element: withSuspense(TemplatesPage),
           },
           {
             path: ROUTES.SETTINGS,

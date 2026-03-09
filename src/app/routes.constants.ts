@@ -17,6 +17,7 @@ export const ROUTES = {
   GOALS_NEW: '/goals/new',
   GOAL_DETAIL: '/goals/:id',
   BILLS: '/bills',
+  TEMPLATES: '/templates',
   SETTINGS: '/settings',
   NOT_FOUND: '*',
 } as const;
