@@ -1,9 +1,21 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import type { UUID } from '@/shared/types/common.types';
+import type { UUID, ISODateString } from '@/shared/types/common.types';
 import type { Transaction, TransactionQueryOptions } from '@/shared/types/transaction.types';
 import { transactionStorage } from '@/services/storage/transaction.storage';
 import { useSessionStore } from '@/app/stores/session.store';
+
+// ---------------------------------------------------------------------------
+// Bulk operation types
+// ---------------------------------------------------------------------------
+
+export type BulkOperationRecord = {
+  type: 'edit' | 'delete' | 'categorize' | 'tag' | 'date-shift';
+  affectedIds: UUID[];
+  previousValues: Record<UUID, Partial<Transaction>>;
+  description: string;
+  performedAt: ISODateString;
+};
 
 // ---------------------------------------------------------------------------
 // State & Actions
@@ -19,6 +31,12 @@ type TransactionState = {
   activeTransaction: Transaction | null;
   isPanelOpen: boolean;
   panelMode: 'view' | 'add' | 'edit' | 'csv';
+  // Bulk selection
+  isBulkMode: boolean;
+  selectedTransactionIds: UUID[];
+  lastBulkOperation: BulkOperationRecord | null;
+  isBulkOperating: boolean;
+  bulkOperationError: string | null;
 };
 
 type TransactionActions = {
@@ -32,6 +50,18 @@ type TransactionActions = {
   addTransactionToList: (tx: Transaction) => void;
   updateTransactionInList: (tx: Transaction) => void;
   removeTransactionFromList: (id: UUID) => void;
+  // Bulk actions
+  enterBulkMode: () => void;
+  exitBulkMode: () => void;
+  toggleTransactionSelection: (id: UUID) => void;
+  selectAllVisible: () => void;
+  clearSelection: () => void;
+  setBulkOperating: (value: boolean) => void;
+  setBulkOperationError: (error: string | null) => void;
+  applyBulkUpdates: (updates: Record<UUID, Partial<Transaction>>) => void;
+  removeBulkDeleted: (ids: UUID[]) => void;
+  setLastBulkOperation: (record: BulkOperationRecord | null) => void;
+  undoLastBulkOperation: () => Promise<void>;
 };
 
 const DEFAULT_LIMIT = 30;
@@ -44,6 +74,16 @@ function getDefaultFilters(): TransactionQueryOptions {
     sortBy: 'date',
     sortOrder: 'desc',
   };
+}
+
+// Module-level timer for undo auto-dismiss (can't store in Zustand state)
+let undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearUndoTimer() {
+  if (undoTimer !== null) {
+    clearTimeout(undoTimer);
+    undoTimer = null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +100,12 @@ export const useTransactionStore = create<TransactionState & TransactionActions>
   activeTransaction: null,
   isPanelOpen: false,
   panelMode: 'view' as 'view' | 'add' | 'edit' | 'csv',
+  // Bulk selection
+  isBulkMode: false,
+  selectedTransactionIds: [],
+  lastBulkOperation: null,
+  isBulkOperating: false,
+  bulkOperationError: null,
 
   async loadTransactions(options) {
     const { derivedKey } = useSessionStore.getState();
@@ -156,6 +202,133 @@ export const useTransactionStore = create<TransactionState & TransactionActions>
       totalCount: Math.max(0, state.totalCount - 1),
     }));
   },
+
+  // -------------------------------------------------------------------------
+  // Bulk actions
+  // -------------------------------------------------------------------------
+
+  enterBulkMode() {
+    set({ isBulkMode: true, selectedTransactionIds: [], bulkOperationError: null });
+  },
+
+  exitBulkMode() {
+    clearUndoTimer();
+    set({
+      isBulkMode: false,
+      selectedTransactionIds: [],
+      lastBulkOperation: null,
+      bulkOperationError: null,
+    });
+  },
+
+  toggleTransactionSelection(id) {
+    set((s) => {
+      const exists = s.selectedTransactionIds.includes(id);
+      return {
+        selectedTransactionIds: exists
+          ? s.selectedTransactionIds.filter((x) => x !== id)
+          : [...s.selectedTransactionIds, id],
+      };
+    });
+  },
+
+  selectAllVisible() {
+    const ids = get().transactions.map((t) => t.id);
+    set({ selectedTransactionIds: ids });
+  },
+
+  clearSelection() {
+    set({ selectedTransactionIds: [] });
+  },
+
+  setBulkOperating(value) {
+    set({ isBulkOperating: value });
+  },
+
+  setBulkOperationError(error) {
+    set({ bulkOperationError: error });
+  },
+
+  applyBulkUpdates(updates) {
+    set((s) => ({
+      transactions: s.transactions.map((t) => {
+        const patch = updates[t.id as UUID];
+        return patch ? { ...t, ...patch } : t;
+      }),
+    }));
+  },
+
+  removeBulkDeleted(ids) {
+    const idSet = new Set(ids);
+    set((s) => ({
+      transactions: s.transactions.filter((t) => !idSet.has(t.id as UUID)),
+      totalCount: Math.max(0, s.totalCount - ids.length),
+    }));
+  },
+
+  setLastBulkOperation(record) {
+    clearUndoTimer();
+    set({ lastBulkOperation: record });
+    if (record !== null) {
+      undoTimer = setTimeout(() => {
+        set({ lastBulkOperation: null });
+        undoTimer = null;
+      }, 30_000);
+    }
+  },
+
+  async undoLastBulkOperation() {
+    const { lastBulkOperation, filters } = get();
+    if (!lastBulkOperation) return;
+    const key = useSessionStore.getState().derivedKey;
+    if (!key) return;
+
+    clearUndoTimer();
+    set({ isBulkOperating: true });
+
+    try {
+      const { type, previousValues } = lastBulkOperation;
+
+      if (type === 'delete') {
+        // Re-create each deleted transaction from snapshot
+        for (const [, tx] of Object.entries(previousValues)) {
+          const full = tx as Transaction;
+          await transactionStorage.createTransaction(
+            {
+              userId: full.userId,
+              accountId: full.accountId,
+              type: full.type,
+              amount: full.amount,
+              currency: full.currency,
+              categoryId: full.categoryId,
+              date: full.date,
+              notes: full.notes,
+              isReconciled: full.isReconciled,
+            },
+            key
+          );
+        }
+        // Full reload to restore list order
+        await get().loadTransactions(filters);
+      } else {
+        // Restore previous field values via updateTransaction
+        const restoredMap: Record<UUID, Partial<Transaction>> = {};
+        for (const [id, prev] of Object.entries(previousValues)) {
+          const result = await transactionStorage.updateTransaction(
+            id as UUID,
+            prev as Partial<Omit<Transaction, 'id' | 'createdAt'>>,
+            key
+          );
+          if (result.success) {
+            restoredMap[id as UUID] = result.data;
+          }
+        }
+        get().applyBulkUpdates(restoredMap);
+      }
+    } finally {
+      set({ isBulkOperating: false, lastBulkOperation: null });
+    }
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -191,6 +364,33 @@ export function useTransactionPanel() {
       activeTransaction: s.activeTransaction,
       openPanel: s.openPanel,
       closePanel: s.closePanel,
+    }))
+  );
+}
+
+export function useBulkMode() {
+  return useTransactionStore(
+    useShallow((s) => ({
+      isBulkMode: s.isBulkMode,
+      selectedTransactionIds: s.selectedTransactionIds,
+      enterBulkMode: s.enterBulkMode,
+      exitBulkMode: s.exitBulkMode,
+      toggleTransactionSelection: s.toggleTransactionSelection,
+      selectAllVisible: s.selectAllVisible,
+      clearSelection: s.clearSelection,
+    }))
+  );
+}
+
+export function useBulkOperation() {
+  return useTransactionStore(
+    useShallow((s) => ({
+      isBulkOperating: s.isBulkOperating,
+      bulkOperationError: s.bulkOperationError,
+      lastBulkOperation: s.lastBulkOperation,
+      undoLastBulkOperation: s.undoLastBulkOperation,
+      setBulkOperating: s.setBulkOperating,
+      setBulkOperationError: s.setBulkOperationError,
     }))
   );
 }

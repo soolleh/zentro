@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Pencil, Trash2, Repeat, Paperclip } from 'lucide-react';
+import { Pencil, Trash2, Repeat, Paperclip, Check } from 'lucide-react';
 import { CategoryIcon } from '@/shared/ui/CategoryIcon';
 import { formatCurrency } from '@/shared/utils/currency.utils';
 import { useDrag } from '@use-gesture/react';
@@ -16,6 +16,11 @@ type TransactionRowProps = {
   onPress: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  // Bulk mode
+  isBulkMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  onEnterBulkMode?: () => void;
 };
 
 function formatAmount(transaction: Transaction): string {
@@ -43,16 +48,22 @@ export function TransactionRow({
   onPress,
   onEdit,
   onDelete,
+  isBulkMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onEnterBulkMode,
 }: TransactionRowProps) {
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
   const initialTouchRef = useRef<{ x: number; y: number } | null>(null);
   const isHorizontalRef = useRef<boolean | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const bind = useDrag(
     ({ first, last, movement: [mx], xy: [x, y], direction: [dx] }) => {
-      if (!isMobile) return;
+      // Disable swipe in bulk mode
+      if (!isMobile || isBulkMode) return;
 
       if (first) {
         initialTouchRef.current = { x, y };
@@ -111,6 +122,10 @@ export function TransactionRow({
   );
 
   const handleRowClick = () => {
+    if (isBulkMode) {
+      onToggleSelect?.();
+      return;
+    }
     if (Math.abs(offset) > 5) {
       setOffset(0);
       return;
@@ -118,13 +133,34 @@ export function TransactionRow({
     onPress();
   };
 
+  // Long-press to enter bulk mode
+  const handlePointerDown = () => {
+    if (isBulkMode) return;
+    longPressTimer.current = setTimeout(() => {
+      navigator.vibrate?.(50);
+      onEnterBulkMode?.();
+      onToggleSelect?.();
+      longPressTimer.current = null;
+    }, 400);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current !== null) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   const truncate = (str: string, max: number) =>
     str.length > max ? str.slice(0, max) + '…' : str;
 
   return (
-    <div className="relative overflow-hidden">
-      {/* Action buttons (behind the row) */}
-      {isMobile && (
+    <div className={[
+      'relative overflow-hidden',
+      isBulkMode && isSelected ? 'border-l-2 border-l-primary' : '',
+    ].join(' ')}>
+      {/* Action buttons (behind the row — hidden in bulk mode) */}
+      {isMobile && !isBulkMode && (
         <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
           <button
             type="button"
@@ -147,33 +183,57 @@ export function TransactionRow({
 
       {/* Row content */}
       <div
-        {...(isMobile ? bind() : {})}
+        {...(!isBulkMode && isMobile ? bind() : {})}
         style={{
-          transform: `translateX(${offset.toString()}px)`,
+          transform: isBulkMode ? undefined : `translateX(${offset.toString()}px)`,
           transition: isDragging ? 'none' : 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
         onClick={handleRowClick}
-        className="flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 active:bg-muted/50 cursor-pointer transition-colors duration-150 border-b border-border/50 last:border-0 bg-background"
+        onPointerDown={handlePointerDown}
+        onPointerUp={cancelLongPress}
+        onPointerLeave={cancelLongPress}
+        className={[
+          'flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors duration-150 border-b border-border/50 last:border-0',
+          isBulkMode && isSelected
+            ? 'bg-primary/5 hover:bg-primary/10 active:bg-primary/10'
+            : 'hover:bg-muted/30 active:bg-muted/50 bg-background',
+        ].join(' ')}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPress(); }
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (isBulkMode) { onToggleSelect?.(); } else { onPress(); }
+          }
         }}
       >
-        {/* Category icon circle */}
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{
-            backgroundColor: category ? `${category.color}26` : 'hsl(var(--muted))',
-          }}
-        >
-          <CategoryIcon
-            name={category?.icon}
-            className="w-5 h-5"
-            style={{ color: category?.color ?? 'hsl(var(--muted-foreground))' }}
-            aria-hidden
-          />
-        </div>
+        {/* Checkbox (bulk mode) OR category icon */}
+        {isBulkMode ? (
+          <div
+            className={[
+              'w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-100',
+              isSelected
+                ? 'border-primary bg-primary'
+                : 'border-border hover:border-primary/50',
+            ].join(' ')}
+          >
+            {isSelected && <Check className="w-5 h-5 text-white" aria-hidden />}
+          </div>
+        ) : (
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+            style={{
+              backgroundColor: category ? `${category.color}26` : 'hsl(var(--muted))',
+            }}
+          >
+            <CategoryIcon
+              name={category?.icon}
+              className="w-5 h-5"
+              style={{ color: category?.color ?? 'hsl(var(--muted-foreground))' }}
+              aria-hidden
+            />
+          </div>
+        )}
 
         {/* Main info */}
         <div className="flex-1 min-w-0">

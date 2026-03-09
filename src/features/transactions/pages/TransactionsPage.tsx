@@ -1,7 +1,7 @@
-import { useRef, useMemo, useCallback } from 'react';
-import { Plus, Upload } from 'lucide-react';
+import { useRef, useMemo, useCallback, useEffect } from 'react';
+import { Plus, Upload, SquareCheck, X, CheckSquare2 } from 'lucide-react';
 import { useBaseCurrency } from '@/app/preferences.store';
-import { useTransactions, useTransactionFilters, useTransactionPanel, useTransactionStore } from '@/app/stores/transaction.store';
+import { useTransactions, useTransactionFilters, useTransactionPanel, useTransactionStore, useBulkMode } from '@/app/stores/transaction.store';
 import type { Transaction } from '@/shared/types/transaction.types';
 import type { UUID } from '@/shared/types/common.types';
 import { SlidePanel } from '@/shared/components/SlidePanel';
@@ -14,6 +14,7 @@ import { TransactionForm } from '../components/TransactionForm';
 import { CSVImportPanel } from '../components/CSVImportPanel';
 import { useTransactionList } from '../hooks/useTransactionList';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { BulkActionBar } from '../components/BulkActionBar';
 
 type PanelMode = 'view' | 'add' | 'edit' | 'csv';
 
@@ -105,6 +106,24 @@ export function TransactionsPage() {
   const { openPanel, closePanel, isPanelOpen, panelMode, activeTransaction } = useTransactionPanel();
   const loadMore = useTransactionStore((s) => s.loadMore);
   const nextCursor = useTransactionStore((s) => s.nextCursor);
+  const selectAllVisible = useTransactionStore((s) => s.selectAllVisible);
+
+  const {
+    isBulkMode,
+    selectedTransactionIds,
+    enterBulkMode,
+    exitBulkMode,
+    toggleTransactionSelection,
+  } = useBulkMode();
+
+  // Escape key exits bulk mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isBulkMode) exitBulkMode();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => { document.removeEventListener('keydown', handleKeyDown); };
+  }, [isBulkMode, exitBulkMode]);
 
   const { categoryMap, accounts } = useTransactionList();
 
@@ -156,34 +175,77 @@ export function TransactionsPage() {
       {/* Page header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/60">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 lg:px-6">
-          <div>
-            <h1 className="text-xl font-bold text-foreground leading-tight">Transactions</h1>
-            {!isLoading && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {totalCount.toString()} total
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => { openPanel('csv'); }}
-              className="hidden lg:flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-background text-sm font-medium text-foreground hover:bg-muted/50 transition-colors duration-150"
-              aria-label="Import CSV"
-            >
-              <Upload className="w-4 h-4 text-muted-foreground" />
-              Import CSV
-            </button>
-            <button
-              type="button"
-              onClick={() => { openPanel('add'); }}
-              className="hidden lg:flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-150"
-              aria-label="Add transaction"
-            >
-              <Plus className="w-4 h-4" />
-              Add transaction
-            </button>
-          </div>
+          {isBulkMode ? (
+            // Bulk mode header
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-foreground">
+                  {selectedTransactionIds.length.toString()} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { selectAllVisible(); }}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm font-medium text-primary hover:bg-primary/8 transition-colors duration-150"
+                  aria-label="Select all"
+                >
+                  <CheckSquare2 className="w-4 h-4" />
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={exitBulkMode}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors duration-150"
+                  aria-label="Cancel bulk selection"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            // Normal header
+            <>
+              <div>
+                <h1 className="text-xl font-bold text-foreground leading-tight">Transactions</h1>
+                {!isLoading && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {totalCount.toString()} total
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={enterBulkMode}
+                  className="hidden lg:flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-background text-sm font-medium text-foreground hover:bg-muted/50 transition-colors duration-150"
+                  aria-label="Select transactions"
+                >
+                  <SquareCheck className="w-4 h-4 text-muted-foreground" />
+                  Select
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { openPanel('csv'); }}
+                  className="hidden lg:flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-background text-sm font-medium text-foreground hover:bg-muted/50 transition-colors duration-150"
+                  aria-label="Import CSV"
+                >
+                  <Upload className="w-4 h-4 text-muted-foreground" />
+                  Import CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { openPanel('add'); }}
+                  className="hidden lg:flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-150"
+                  aria-label="Add transaction"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add transaction
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="px-4 pb-3 lg:px-6">
@@ -232,6 +294,10 @@ export function TransactionsPage() {
                         onPress={() => { openPanel('view', tx); }}
                         onDelete={() => { openPanel('view', tx); }}
                         onEdit={() => { openPanel('edit', tx); }}
+                        isBulkMode={isBulkMode}
+                        isSelected={selectedTransactionIds.includes(tx.id as UUID)}
+                        onToggleSelect={() => { toggleTransactionSelection(tx.id as UUID); }}
+                        onEnterBulkMode={enterBulkMode}
                       />
                     );
                   })}
@@ -252,8 +318,11 @@ export function TransactionsPage() {
         )}
       </div>
 
-      {/* Mobile FABs */}
-      <div className="lg:hidden fixed bottom-20 right-4 z-30 flex flex-col gap-2 items-end">
+      {/* Bulk action bar */}
+      <BulkActionBar />
+
+      {/* Mobile FABs — hidden during bulk mode */}
+      <div className={['lg:hidden fixed bottom-20 right-4 z-30 flex flex-col gap-2 items-end transition-opacity duration-150', isBulkMode ? 'opacity-0 pointer-events-none' : 'opacity-100'].join(' ')}>
         <button
           type="button"
           onClick={() => { openPanel('csv'); }}
