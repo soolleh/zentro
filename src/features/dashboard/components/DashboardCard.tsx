@@ -21,6 +21,8 @@ type DashboardCardProps = {
   children: React.ReactNode;
   /** Rendered in place of children while isLoading is true. */
   skeleton?: React.ReactNode;
+  /** Extra content rendered after the title/subtitle row */
+  titleExtra?: React.ReactNode;
 };
 
 export function DashboardCard({
@@ -31,6 +33,7 @@ export function DashboardCard({
   className,
   children,
   skeleton,
+  titleExtra,
 }: DashboardCardProps) {
   return (
     <div
@@ -43,6 +46,7 @@ export function DashboardCard({
             {subtitle && (
               <span className="text-xs text-muted-foreground">{subtitle}</span>
             )}
+            {titleExtra}
           </div>
           {action && (
             <Link

@@ -146,6 +146,16 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
         alertsStore.createIndex('accountId', 'accountId', { unique: false });
         alertsStore.createIndex('status', 'status', { unique: false });
       }
+      // -----------------------------------------------------------------------
+      // V9 → net_worth_milestones store (unencrypted — thresholds are public)
+      // -----------------------------------------------------------------------
+      if (oldVersion < 9) {
+        const milestonesStore = db.createObjectStore('net_worth_milestones', { keyPath: 'id' });
+        milestonesStore.createIndex('userId', 'userId', { unique: false });
+        milestonesStore.createIndex('achievedAt', 'achievedAt', { unique: false });
+        milestonesStore.createIndex('acknowledged', 'acknowledged', { unique: false });
+        milestonesStore.createIndex('type', 'type', { unique: false });
+      }
     },
   });
 

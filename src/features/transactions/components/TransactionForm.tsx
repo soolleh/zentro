@@ -21,6 +21,8 @@ import { createTemplateManually } from '@/services/templates/template.service';
 import { useTemplateStore } from '@/app/stores/template.store';
 import { checkAlertsAfterTransaction } from '@/services/alerts/alert.service';
 import { getAccountBalance } from '@/services/accounts/account.service';
+import { computeNetWorth, checkAndCelebrate } from '@/services/milestones/milestone.service';
+import { useMilestoneStore } from '@/app/stores/milestone.store';
 
 type FormValues = {
   type: TransactionType;
@@ -253,6 +255,14 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
           const balResult = await getAccountBalance(values.accountId as UUID, derivedKey);
           if (balResult.success) previousBalance = balResult.data;
         }
+        // Capture net worth before the transaction for milestone evaluation
+        let previousNetWorth = 0;
+        try {
+          const nwBeforeResult = await computeNetWorth(currentUser.id as UUID);
+          if (nwBeforeResult.success) previousNetWorth = nwBeforeResult.data;
+        } catch {
+          // Non-blocking
+        }
         const result = await transactionStorage.createTransaction(
           {
             userId: currentUser.id,
@@ -280,6 +290,25 @@ export function TransactionForm({ transaction, onClose }: TransactionFormProps) 
         addTransactionToList(newTx);
         // Evaluate balance alerts after adding a transaction (fire-and-forget)
         void checkAlertsAfterTransaction(currentUser.id as UUID, values.accountId as UUID, previousBalance);
+        // Evaluate milestones — runs after alerts (celebrations are lower-priority than actionable alerts)
+        void (async () => {
+          try {
+            const currentNWResult = await computeNetWorth(currentUser.id as UUID);
+            if (currentNWResult.success) {
+              const newMilestones = await checkAndCelebrate(
+                currentUser.id as UUID,
+                currentNWResult.data,
+                previousNetWorth
+              );
+              const milestoneStore = useMilestoneStore.getState();
+              for (const milestone of newMilestones) {
+                milestoneStore.addMilestoneToast(milestone);
+              }
+            }
+          } catch {
+            // Non-blocking — milestone check failure must not affect transaction
+          }
+        })();
         addToast({ type: 'success', message: 'Transaction added.' });
         onClose();
       }

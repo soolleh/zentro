@@ -22,6 +22,9 @@ import { UpdateBanner } from '@/features/pwa/components/UpdateBanner';
 import { InstallPrompt } from '@/features/pwa/components/InstallPrompt';
 import { NotificationPermissionPrompt } from '@/features/pwa/components/NotificationPermissionPrompt';
 import { OfflineIndicator } from '@/features/pwa/components/OfflineIndicator';
+import { MilestoneCelebrationOverlay } from '@/features/milestones/components/MilestoneCelebrationOverlay';
+import { MilestoneToastStack } from '@/features/milestones/components/MilestoneToast';
+import { useCelebration } from '@/app/stores/milestone.store';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: ROUTES.DASHBOARD, icon: LayoutDashboard },
@@ -49,6 +52,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { isCelebrating, pendingCelebration } = useCelebration();
 
   const displayInitial = currentUser?.displayName.charAt(0).toUpperCase() ?? 'Z';
   const showPlusButton = !HIDDEN_ROUTES.some((r) => location.pathname.startsWith(r));
@@ -237,6 +241,10 @@ export function AppLayout() {
 
       <InstallPrompt />
       <NotificationPermissionPrompt />
+      {/* Milestone celebration overlay (login flow — unacknowledged milestones) */}
+      {isCelebrating && pendingCelebration && <MilestoneCelebrationOverlay />}
+      {/* Milestone toast stack (transaction flow — milestones during app use) */}
+      <MilestoneToastStack />
     </div>
   );
 }

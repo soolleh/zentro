@@ -5,7 +5,7 @@
  * Uses a custom Toggle (switch) component built inline.
  */
 
-import { Bell, BellDot, BellOff, TrendingUp, CalendarDays, BarChart2, Send, AlarmClock, Wallet } from 'lucide-react';
+import { Bell, BellDot, BellOff, TrendingUp, CalendarDays, BarChart2, Send, AlarmClock, Wallet, Trophy } from 'lucide-react';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsCard } from '../components/SettingsCard';
 import { SettingsRow } from '../components/SettingsRow';
@@ -158,6 +158,7 @@ export function NotificationsSection() {
   const weeklySummaryPref = getPref(notificationPreferences, 'WeeklySummary');
   const dailyReminderPref = getPref(notificationPreferences, 'DailyReminder');
   const balanceAlertPref = getPref(notificationPreferences, 'AccountBalanceAlert');
+  const milestonePref = getPref(notificationPreferences, 'NetWorthMilestone');
 
   async function toggle(type: NotificationType, enabled: boolean) {
     if (enabled && notificationPermission === 'default' && isNotificationSupported()) {
@@ -314,6 +315,15 @@ export function NotificationsSection() {
           icon={<Wallet size={16} />}
           label="Account Balance Alerts"
           description="Get notified when an account balance crosses a threshold you've set."
+        />
+
+        {/* Net Worth Milestones */}
+        <NotificationRow
+          pref={milestonePref}
+          onToggle={(enabled) => { void toggle('NetWorthMilestone', enabled); }}
+          icon={<Trophy size={16} />}
+          label="Net worth milestones"
+          description="Celebrate when your net worth crosses a new milestone."
         />
 
         {/* Weekly Summary */}

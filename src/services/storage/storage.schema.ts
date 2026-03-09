@@ -127,6 +127,23 @@ export type AlertRecord = {
   status: string;
 } & SerializedEncryptedPayload;
 
+/**
+ * net_worth_milestones — NOT encrypted — thresholds are public constants.
+ * achievedAt, type, acknowledged, and threshold are all plaintext for querying.
+ */
+export type MilestoneRecord = {
+  id: string;
+  userId: string;
+  type: string;
+  threshold: number;
+  label: string;
+  emoji: string;
+  tier: string;
+  achievedAt: string;
+  netWorthAtAchievement: number;
+  acknowledged: number; // 1 = true, 0 = false (IDB index limitation)
+};
+
 export interface ZentroDBSchema extends DBSchema {
   users: {
     key: string;
@@ -224,5 +241,15 @@ export interface ZentroDBSchema extends DBSchema {
     key: string;
     value: AlertRecord;
     indexes: { userId: string; accountId: string; status: string };
+  };
+  net_worth_milestones: {
+    key: string;
+    value: MilestoneRecord;
+    indexes: {
+      userId: string;
+      achievedAt: string;
+      acknowledged: number;
+      type: string;
+    };
   };
 }

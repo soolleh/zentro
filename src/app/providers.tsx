@@ -24,6 +24,7 @@ import { settingsStorage } from '@/services/storage/settings.storage';
 import { useDriveBackupStore } from '@/app/stores/drive-backup.store';
 import { shouldRunBackup } from '@/services/google/drive-backup.service';
 import type { UUID } from '@/shared/types/common.types';
+import { useMilestoneStore } from '@/app/stores/milestone.store';
 import { LoadingSpinner } from '@/app/LoadingSpinner';
 
 // --- Theme Initializer ---
@@ -372,6 +373,37 @@ function DriveBackupInitializer() {
 }
 
 // ---------------------------------------------------------------------------
+// --- Milestone Initializer --- loads unacknowledged milestones on login
+//     and queues the celebration overlay if any are pending.
+//     2s delay to let the dashboard settle first.
+// ---------------------------------------------------------------------------
+function MilestoneInitializer() {
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isLocked = useSessionStore((s) => s.isLocked);
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocked || !currentUser) {
+      hasRun.current = false;
+      return;
+    }
+    if (hasRun.current) return;
+    hasRun.current = true;
+
+    const userId = currentUser.id as UUID;
+
+    const timer = setTimeout(() => {
+      void useMilestoneStore.getState().loadMilestones(userId);
+    }, 2_000);
+
+    return () => { clearTimeout(timer); };
+  }, [isAuthenticated, isLocked, currentUser]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // --- Session Logout Resetter ---
 // stale {isLoaded: true, onboardingCompletedAt: null} state from a prior
@@ -457,6 +489,7 @@ export function Providers() {
           <PeriodicSyncRegistrar />
           <NotificationInitializer />
           <DriveBackupInitializer />
+          <MilestoneInitializer />
           <RecurringTransactionInitializer />
           <BillEntryInitializer />
           <DashboardInitializer />

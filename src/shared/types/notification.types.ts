@@ -8,7 +8,8 @@ export type NotificationType =
   | 'GoalBehindTarget'
   | 'WeeklySummary'
   | 'DailyReminder'
-  | 'AccountBalanceAlert';
+  | 'AccountBalanceAlert'
+  | 'NetWorthMilestone';
 
 export type NotificationPreference = {
   readonly type: NotificationType;
