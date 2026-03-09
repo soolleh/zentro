@@ -146,7 +146,7 @@ export function NetWorthGrowthReport() {
               tickFormatter={abbreviate}
               width={45}
             />
-            <Tooltip content={NetWorthTooltip} />
+            <Tooltip<number, string> content={NetWorthTooltip} />
             <Area
               type="monotone"
               dataKey="netWorth"
