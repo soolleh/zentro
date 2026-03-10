@@ -208,7 +208,7 @@ export function IncomeTrendReport() {
               stroke="hsl(var(--border))"
               strokeWidth={1}
             />
-            <Tooltip<number, string> content={TrendTooltip} />
+            <Tooltip content={TrendTooltip} />
             <Line
               type="monotone"
               dataKey="income"

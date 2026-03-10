@@ -230,7 +230,7 @@ export function YearlyOverviewReport() {
                   tickFormatter={abbreviate}
                   width={40}
                 />
-                <Tooltip<number, string> content={YearlyChartTooltip} />
+                <Tooltip content={YearlyChartTooltip} />
                 <Bar
                   dataKey="income"
                   fill="hsl(var(--chart-4))"

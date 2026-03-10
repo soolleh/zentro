@@ -181,7 +181,7 @@ export function SavingsRateTrendReport() {
               strokeDasharray="3 3"
               strokeOpacity={0.4}
             />
-            <Tooltip<number, string> content={SavingsRateTooltip} />
+            <Tooltip content={SavingsRateTooltip} />
             <Line
               type="monotone"
               dataKey="value"
