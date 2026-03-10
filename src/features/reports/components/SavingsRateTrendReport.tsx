@@ -20,6 +20,10 @@ import { ReportSectionHeader } from './ReportSectionHeader';
 import { useTrends, useReportFilters } from '@/app/stores/reports.store';
 import type { TooltipContentProps } from 'recharts';
 
+// recharts' ValueType / NameType are not exported from the public API
+type RVT = number | string | ReadonlyArray<number | string>;
+type RNT = number | string;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -56,7 +60,7 @@ type ChartRow = {
   compareValue?: number;
 };
 
-function SavingsRateTooltip({ active, payload }: TooltipContentProps<number, string>) {
+function SavingsRateTooltip({ active, payload }: TooltipContentProps<RVT, RNT>) {
   if (!active || !payload.length) return null;
   const item = payload[0] as { payload: ChartRow } | undefined;
   const row = item?.payload ?? {} as ChartRow;

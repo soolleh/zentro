@@ -22,6 +22,10 @@ import { useBaseCurrency } from '@/app/preferences.store';
 import { formatCurrency } from '@/shared/utils/currency.utils';
 import type { TooltipContentProps } from 'recharts';
 
+// recharts' ValueType / NameType are not exported from the public API
+type RVT = number | string | ReadonlyArray<number | string>;
+type RNT = number | string;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -58,7 +62,7 @@ type ChartRow = {
   compareValue?: number;
 };
 
-function NetWorthTooltip({ active, payload }: TooltipContentProps<number, string>) {
+function NetWorthTooltip({ active, payload }: TooltipContentProps<RVT, RNT>) {
   if (!active || !payload.length) return null;
   const item = payload[0] as { payload: ChartRow } | undefined;
   const row = item?.payload ?? {} as ChartRow;

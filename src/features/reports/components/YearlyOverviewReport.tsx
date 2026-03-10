@@ -20,6 +20,10 @@ import { useBaseCurrency } from '@/app/preferences.store';
 import { formatCurrency } from '@/shared/utils/currency.utils';
 import type { TooltipContentProps } from 'recharts';
 
+// recharts' ValueType / NameType are not exported from the public API
+type RVT = number | string | ReadonlyArray<number | string>;
+type RNT = number | string;
+
 // ---------------------------------------------------------------------------
 // Y axis number abbreviation
 // ---------------------------------------------------------------------------
@@ -40,7 +44,7 @@ type TooltipPayloadItem = {
   color: string;
 };
 
-function YearlyChartTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
+function YearlyChartTooltip({ active, payload, label }: TooltipContentProps<RVT, RNT>) {
   if (!active || !payload.length) return null;
 
   const items = payload as unknown as TooltipPayloadItem[];
