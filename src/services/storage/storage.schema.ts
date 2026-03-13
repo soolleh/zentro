@@ -130,6 +130,7 @@ export type AlertRecord = {
 /**
  * net_worth_milestones — NOT encrypted — thresholds are public constants.
  * achievedAt, type, acknowledged, and threshold are all plaintext for querying.
+ * @deprecated New code should use achieved_milestones + AchievedMilestoneRecord
  */
 export type MilestoneRecord = {
   id: string;
@@ -142,6 +143,22 @@ export type MilestoneRecord = {
   achievedAt: string;
   netWorthAtAchievement: number;
   acknowledged: number; // 1 = true, 0 = false (IDB index limitation)
+};
+
+/**
+ * achieved_milestones — NOT encrypted — thresholds are public constants;
+ * dates and rounded net worth amounts are non-sensitive.
+ *
+ * milestoneId references MILESTONE_CONFIG[].id (1–16).
+ * One record per userId + milestoneId (enforced by storage layer).
+ */
+export type AchievedMilestoneRecord = {
+  id: string;
+  userId: string;
+  milestoneId: number;
+  achievedAt: string; // ISO date string
+  netWorthAtAchievement: number;
+  acknowledged: number; // 1 = true, 0 = false
 };
 
 export interface ZentroDBSchema extends DBSchema {
@@ -250,6 +267,15 @@ export interface ZentroDBSchema extends DBSchema {
       achievedAt: string;
       acknowledged: number;
       type: string;
+    };
+  };
+  achieved_milestones: {
+    key: string;
+    value: AchievedMilestoneRecord;
+    indexes: {
+      userId: string;
+      milestoneId: number;
+      acknowledged: number;
     };
   };
 }

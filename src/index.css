@@ -106,3 +106,46 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Milestone gamification animations
+   --------------------------------------------------------------------------- */
+
+@keyframes shimmer-sweep {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.legendary-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 35%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 65%,
+    transparent 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer-sweep 3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes badge-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04);
+  }
+}
+
+.milestone-badge-breathe {
+  animation: badge-breathe 2.4s ease-in-out infinite;
+}

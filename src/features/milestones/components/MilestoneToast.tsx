@@ -1,16 +1,21 @@
 /**
  * MilestoneToast.tsx
  *
- * Small toast notification shown when a milestone is detected during app use
- * (transaction flow). Stacks up to 3 visible at once. Auto-dismisses after 8s.
+ * In-session toast notifications for newly achieved milestones.
  *
- * The full overlay celebration is triggered only on login for unacknowledged
- * milestones — this toast is the lighter, in-session variant.
+ * The full celebration overlay (`MilestoneCelebrationOverlay`) handles the
+ * primary UX — this toast is a lightweight complement shown while the user
+ * is mid-session. With the new celebration-queue architecture the store's
+ * `useToastMilestones` returns an empty list, so the stack renders nothing
+ * unless the queue is extended in future.
+ *
+ * @module milestones/components
  */
 import { useEffect } from 'react';
 import { Trophy } from 'lucide-react';
-import type { NetWorthMilestone, MilestoneTier } from '@/shared/types/milestone.types';
-import { useToastMilestones, useMilestoneStore } from '@/app/stores/milestone.store';
+import type { AchievedMilestone } from '@/shared/types/milestone.types';
+import { getMilestoneById, BADGE_LEVEL_STYLES } from '@/services/milestones/milestone-config';
+import { useMilestoneStore } from '@/app/stores/milestone.store';
 import type { UUID } from '@/shared/types/common.types';
 
 // ---------------------------------------------------------------------------
@@ -20,71 +25,46 @@ import type { UUID } from '@/shared/types/common.types';
 const TOAST_DURATION_MS = 8_000;
 const MAX_VISIBLE_TOASTS = 3;
 
-const TOAST_DISMISSED = 'dismissed';
-
-const TIER_BORDER: Record<MilestoneTier, string> = {
-  bronze: 'border-[#cd7f32]/50',
-  silver: 'border-[#c0c0c0]/50',
-  gold: 'border-[#ffd700]/60',
-  platinum: 'border-[#e5e4e2]/60',
-  diamond: 'border-blue-400/60',
-};
-
-const TIER_GLOW: Record<MilestoneTier, string> = {
-  bronze: 'shadow-[#cd7f32]/15',
-  silver: 'shadow-[#c0c0c0]/15',
-  gold: 'shadow-[#ffd700]/20',
-  platinum: 'shadow-[#e5e4e2]/20',
-  diamond: 'shadow-blue-400/20',
-};
-
 // ---------------------------------------------------------------------------
 // Single toast item
 // ---------------------------------------------------------------------------
 
 type MilestoneToastItemProps = {
-  milestone: NetWorthMilestone;
+  milestone: AchievedMilestone;
 };
 
 function MilestoneToastItem({ milestone }: MilestoneToastItemProps) {
-  const { dismissMilestoneToast, triggerCelebration } = useToastMilestones();
+  const advanceCelebration = useMilestoneStore((s) => s.advanceCelebration);
+  const config = getMilestoneById(milestone.milestoneId);
+  const levelStyle = BADGE_LEVEL_STYLES[config.badgeLevel];
 
-  // Auto-dismiss after TOAST_DURATION_MS
+  // Auto-dismiss: advance the celebration queue after the timeout
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      dismissMilestoneToast(milestone.id as UUID);
+      advanceCelebration();
     }, TOAST_DURATION_MS);
-
     return () => window.clearTimeout(timer);
-  }, [milestone.id, dismissMilestoneToast]);
-
-  function handleOpenCelebration() {
-    triggerCelebration(milestone);
-    dismissMilestoneToast(milestone.id as UUID);
-  }
-
-  const borderClass = TIER_BORDER[milestone.tier];
-  const glowClass = TIER_GLOW[milestone.tier];
+  }, [milestone.id, advanceCelebration]);
 
   return (
     <div
       role="status"
       aria-live="polite"
-      aria-label={`Milestone reached: ${milestone.label}`}
+      aria-label={`Milestone reached: ${config.name}`}
       className={[
         'pointer-events-auto',
         'flex items-center gap-3',
         'p-4 rounded-2xl border shadow-lg',
         'min-w-[300px] max-w-[360px]',
         'bg-card',
-        borderClass,
-        glowClass,
+        levelStyle.borderClass,
         'animate-in slide-in-from-right-4 fade-in duration-300',
       ].join(' ')}
+      style={{ boxShadow: levelStyle.glowClass !== 'none' ? levelStyle.glowClass : undefined }}
     >
       {/* Emoji */}
       <span className="text-3xl leading-none select-none" aria-hidden="true">
-        {milestone.emoji}
+        {config.emoji}
       </span>
 
       {/* Text */}
@@ -93,20 +73,12 @@ function MilestoneToastItem({ milestone }: MilestoneToastItemProps) {
           Milestone reached! 🎉
         </p>
         <p className="text-xs text-muted-foreground mt-0.5 leading-snug truncate">
-          {milestone.label}
+          {config.name}
         </p>
       </div>
 
-      {/* Open full overlay button */}
-      <button
-        type="button"
-        onClick={handleOpenCelebration}
-        title="Open full celebration"
-        aria-label="Open full milestone celebration"
-        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted/60 transition-colors"
-      >
-        <Trophy className="w-4 h-4 text-[#ffd700]" aria-hidden="true" />
-      </button>
+      {/* Trophy icon */}
+      <Trophy className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
     </div>
   );
 }
@@ -115,15 +87,16 @@ function MilestoneToastItem({ milestone }: MilestoneToastItemProps) {
 // Toast stack (rendered in AppLayout)
 // ---------------------------------------------------------------------------
 
-export const MILESTONE_TOAST_ARIA_DISMISSED = TOAST_DISMISSED;
-
 export function MilestoneToastStack() {
-  const { toastMilestones } = useToastMilestones();
+  // The new store's toastMilestones is always [] (no-op).
+  // Access the celebration queue directly for any future in-session toasts.
+  const celebrationQueue = useMilestoneStore((s) => s.celebrationQueue);
+  const isCelebrating = useMilestoneStore((s) => s.isCelebrating);
 
-  if (toastMilestones.length === 0) return null;
+  // Only show queue toasts when NOT in overlay mode
+  if (isCelebrating || celebrationQueue.length === 0) return null;
 
-  // Show only the most recent MAX_VISIBLE_TOASTS
-  const visible = toastMilestones.slice(-MAX_VISIBLE_TOASTS);
+  const visible = celebrationQueue.slice(0, MAX_VISIBLE_TOASTS);
 
   return (
     <div
@@ -137,7 +110,14 @@ export function MilestoneToastStack() {
   );
 }
 
-// Convenience re-export of the store's addMilestoneToast for callers
-export function addMilestoneToast(milestone: NetWorthMilestone) {
+// ---------------------------------------------------------------------------
+// Convenience re-export (backward compat for TransactionForm callers)
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use useMilestoneStore().pushNewAchievements instead. */
+export function addMilestoneToast(milestone: AchievedMilestone) {
   useMilestoneStore.getState().addMilestoneToast(milestone);
 }
+
+// Legacy type export so old callers don't break immediately
+export type { UUID as _LegacyUUID };

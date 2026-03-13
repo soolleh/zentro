@@ -24,6 +24,8 @@ import { NotificationPermissionPrompt } from '@/features/pwa/components/Notifica
 import { OfflineIndicator } from '@/features/pwa/components/OfflineIndicator';
 import { MilestoneCelebrationOverlay } from '@/features/milestones/components/MilestoneCelebrationOverlay';
 import { MilestoneToastStack } from '@/features/milestones/components/MilestoneToast';
+import { JourneyTimeline } from '@/features/milestones/components/JourneyTimeline';
+import { TrophyRoom } from '@/features/milestones/components/TrophyRoom';
 import { useCelebration } from '@/app/stores/milestone.store';
 
 const NAV_ITEMS = [
@@ -245,6 +247,9 @@ export function AppLayout() {
       {isCelebrating && pendingCelebration && <MilestoneCelebrationOverlay />}
       {/* Milestone toast stack (transaction flow — milestones during app use) */}
       <MilestoneToastStack />
+      {/* Milestone journey & trophy room panels */}
+      <JourneyTimeline />
+      <TrophyRoom />
     </div>
   );
 }

@@ -1,21 +1,23 @@
 /**
  * milestone.storage.ts
  *
- * CRUD for the net_worth_milestones IndexedDB store.
+ * CRUD for the achieved_milestones IndexedDB store.
  * NOT encrypted — milestone data contains only public threshold constants,
  * approximate achievedAt timestamps, and rounded net worth values.
- * No account names, transaction details, or sensitive user data.
  *
  * All methods return Result<T>. No throws.
+ *
+ * Idempotency: recordAchievement will not create duplicates for the same
+ * userId + milestoneId pair.
  */
 import { getDB } from '@/services/storage/storage.db';
 import type { Result, UUID, ISODateString } from '@/shared/types/common.types';
-import type { NetWorthMilestone, MilestoneType } from '@/shared/types/milestone.types';
-import type { MilestoneRecord } from '@/services/storage/storage.schema';
+import type { AchievedMilestone } from '@/shared/types/milestone.types';
+import type { AchievedMilestoneRecord } from '@/services/storage/storage.schema';
 import { generateUUID } from '@/services/crypto/crypto.utils';
 
 // ---------------------------------------------------------------------------
-// helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
 function makeError(code: string, message: string, cause?: unknown): Result<never> {
@@ -29,33 +31,14 @@ function makeError(code: string, message: string, cause?: unknown): Result<never
   };
 }
 
-function recordToMilestone(r: MilestoneRecord): NetWorthMilestone {
+function recordToAchieved(r: AchievedMilestoneRecord): AchievedMilestone {
   return {
     id: r.id as UUID,
     userId: r.userId as UUID,
-    type: r.type as MilestoneType,
-    threshold: r.threshold,
-    label: r.label,
-    emoji: r.emoji,
-    tier: r.tier as NetWorthMilestone['tier'],
+    milestoneId: r.milestoneId,
     achievedAt: r.achievedAt as ISODateString,
     netWorthAtAchievement: r.netWorthAtAchievement,
     acknowledged: r.acknowledged === 1,
-  };
-}
-
-function milestoneToRecord(m: NetWorthMilestone): MilestoneRecord {
-  return {
-    id: m.id,
-    userId: m.userId,
-    type: m.type,
-    threshold: m.threshold,
-    label: m.label,
-    emoji: m.emoji,
-    tier: m.tier,
-    achievedAt: m.achievedAt,
-    netWorthAtAchievement: m.netWorthAtAchievement,
-    acknowledged: m.acknowledged ? 1 : 0,
   };
 }
 
@@ -65,78 +48,90 @@ function milestoneToRecord(m: NetWorthMilestone): MilestoneRecord {
 
 export const milestoneStorage = {
   /**
-   * Record a new milestone (idempotent).
-   * If the same userId + type + threshold already exists, returns the existing record.
+   * Record a new achieved milestone. Idempotent — same userId + milestoneId
+   * is recorded at most once. Returns existing record if already present.
    */
-  async recordMilestone(
-    milestone: Omit<NetWorthMilestone, 'id'>
-  ): Promise<Result<NetWorthMilestone>> {
+  async recordAchievement(
+    userId: UUID,
+    milestoneId: number,
+    netWorth: number
+  ): Promise<Result<AchievedMilestone>> {
     try {
       const db = await getDB();
 
       // Idempotency check
-      const existing = await this.getMilestoneByThreshold(
-        milestone.userId,
-        milestone.type,
-        milestone.threshold
-      );
-      if (existing.success && existing.data !== null) {
-        return { success: true, data: existing.data };
+      const index = (await db
+        .transaction('achieved_milestones', 'readonly')
+        .objectStore('achieved_milestones')
+        .index('userId')
+        .getAll(userId)) as AchievedMilestoneRecord[];
+
+      const existing = index.find((r) => r.milestoneId === milestoneId);
+      if (existing) {
+        return { success: true, data: recordToAchieved(existing) };
       }
 
       const id = generateUUID() as UUID;
-      const record = milestoneToRecord({ ...milestone, id });
-      await db.put('net_worth_milestones', record);
-      return { success: true, data: recordToMilestone(record) };
+      const record: AchievedMilestoneRecord = {
+        id,
+        userId,
+        milestoneId,
+        achievedAt: new Date().toISOString() as ISODateString,
+        netWorthAtAchievement: netWorth,
+        acknowledged: 0,
+      };
+
+      await db.put('achieved_milestones', record);
+      return { success: true, data: recordToAchieved(record) };
     } catch (err) {
-      return makeError('MILESTONE_CREATE_FAILED', 'Failed to record milestone.', err);
+      return makeError('MILESTONE_RECORD_FAILED', 'Failed to record achievement.', err);
     }
   },
 
   /**
-   * List all milestones for a user, sorted by achievedAt descending.
+   * List all achieved milestones for a user, sorted by milestoneId ascending.
    */
-  async listMilestonesByUser(userId: UUID): Promise<Result<NetWorthMilestone[]>> {
+  async listAchievedByUser(userId: UUID): Promise<Result<AchievedMilestone[]>> {
     try {
       const db = await getDB();
-      const records = await db.getAllFromIndex('net_worth_milestones', 'userId', userId);
-      const sorted = records.sort((a, b) => b.achievedAt.localeCompare(a.achievedAt));
-      return { success: true, data: sorted.map(recordToMilestone) };
+      const records = await db.getAllFromIndex('achieved_milestones', 'userId', userId);
+      const sorted = records.slice().sort((a, b) => a.milestoneId - b.milestoneId);
+      return { success: true, data: sorted.map(recordToAchieved) };
     } catch (err) {
-      return makeError('MILESTONE_LIST_FAILED', 'Failed to list milestones.', err);
+      return makeError('MILESTONE_LIST_FAILED', 'Failed to list achievements.', err);
     }
   },
 
   /**
-   * List unacknowledged milestones, sorted by achievedAt ascending (oldest first).
+   * List all unacknowledged milestones for a user, sorted by milestoneId.
    */
-  async listUnacknowledgedMilestones(userId: UUID): Promise<Result<NetWorthMilestone[]>> {
+  async listUnacknowledged(userId: UUID): Promise<Result<AchievedMilestone[]>> {
     try {
       const db = await getDB();
-      const all = await db.getAllFromIndex('net_worth_milestones', 'userId', userId);
-      const unacked = all
-        .filter((r) => r.acknowledged === 0)
-        .sort((a, b) => a.achievedAt.localeCompare(b.achievedAt));
-      return { success: true, data: unacked.map(recordToMilestone) };
+      const all = await db.getAllFromIndex('achieved_milestones', 'userId', userId);
+      const unacked = all.filter((r) => r.acknowledged === 0);
+      const sorted = unacked.sort((a, b) => a.milestoneId - b.milestoneId);
+      return { success: true, data: sorted.map(recordToAchieved) };
     } catch (err) {
       return makeError(
         'MILESTONE_LIST_UNACKED_FAILED',
-        'Failed to list unacknowledged milestones.',
+        'Failed to list unacknowledged achievements.',
         err
       );
     }
   },
 
   /**
-   * Mark a single milestone as acknowledged.
+   * Mark a single achievement as acknowledged.
    */
-  async acknowledgeMilestone(id: UUID): Promise<Result<void>> {
+  async acknowledge(id: UUID): Promise<Result<void>> {
     try {
       const db = await getDB();
-      const record = await db.get('net_worth_milestones', id);
+      const record = await db.get('achieved_milestones', id);
       if (!record) return { success: true, data: undefined };
-      record.acknowledged = 1;
-      await db.put('net_worth_milestones', record);
+
+      const updated: AchievedMilestoneRecord = { ...record, acknowledged: 1 };
+      await db.put('achieved_milestones', updated);
       return { success: true, data: undefined };
     } catch (err) {
       return makeError('MILESTONE_ACK_FAILED', 'Failed to acknowledge milestone.', err);
@@ -144,20 +139,19 @@ export const milestoneStorage = {
   },
 
   /**
-   * Mark ALL unacknowledged milestones for a user as acknowledged.
+   * Acknowledge all milestones for a user at once.
    */
-  async acknowledgeAllMilestones(userId: UUID): Promise<Result<void>> {
+  async acknowledgeAll(userId: UUID): Promise<Result<void>> {
     try {
       const db = await getDB();
-      const all = await db.getAllFromIndex('net_worth_milestones', 'userId', userId);
-      const unacked = all.filter((r) => r.acknowledged === 0);
-      const tx = db.transaction('net_worth_milestones', 'readwrite');
-      await Promise.all(
-        unacked.map((r) => {
-          r.acknowledged = 1;
-          return tx.store.put(r);
-        })
-      );
+      const all = await db.getAllFromIndex('achieved_milestones', 'userId', userId);
+      const tx = db.transaction('achieved_milestones', 'readwrite');
+      const store = tx.objectStore('achieved_milestones');
+      for (const record of all) {
+        if (record.acknowledged !== 1) {
+          await store.put({ ...record, acknowledged: 1 });
+        }
+      }
       await tx.done;
       return { success: true, data: undefined };
     } catch (err) {
@@ -166,21 +160,16 @@ export const milestoneStorage = {
   },
 
   /**
-   * Look up a milestone by userId + type + threshold (for idempotency check).
-   * Returns null if not found.
+   * Check whether a specific milestoneId has already been recorded for a user.
+   * Used for idempotency in the evaluation loop.
    */
-  async getMilestoneByThreshold(
-    userId: UUID,
-    type: MilestoneType,
-    threshold: number
-  ): Promise<Result<NetWorthMilestone | null>> {
+  async hasAchieved(userId: UUID, milestoneId: number): Promise<boolean> {
     try {
       const db = await getDB();
-      const all = await db.getAllFromIndex('net_worth_milestones', 'userId', userId);
-      const match = all.find((r) => r.type === type && r.threshold === threshold);
-      return { success: true, data: match ? recordToMilestone(match) : null };
-    } catch (err) {
-      return makeError('MILESTONE_GET_FAILED', 'Failed to get milestone.', err);
+      const all = await db.getAllFromIndex('achieved_milestones', 'userId', userId);
+      return all.some((r) => r.milestoneId === milestoneId);
+    } catch {
+      return false;
     }
   },
 };

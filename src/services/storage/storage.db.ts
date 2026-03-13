@@ -156,6 +156,17 @@ export function getDB(): Promise<IDBPDatabase<ZentroDBSchema>> {
         milestonesStore.createIndex('acknowledged', 'acknowledged', { unique: false });
         milestonesStore.createIndex('type', 'type', { unique: false });
       }
+      // -----------------------------------------------------------------------
+      // V10 → achieved_milestones store (gamification system, INR milestones)
+      //       Replaces net_worth_milestones for all new milestone logic.
+      //       Not encrypted — threshold constants + approximate dates.
+      // -----------------------------------------------------------------------
+      if (oldVersion < 10) {
+        const achievedStore = db.createObjectStore('achieved_milestones', { keyPath: 'id' });
+        achievedStore.createIndex('userId', 'userId', { unique: false });
+        achievedStore.createIndex('milestoneId', 'milestoneId', { unique: false });
+        achievedStore.createIndex('acknowledged', 'acknowledged', { unique: false });
+      }
     },
   });
 

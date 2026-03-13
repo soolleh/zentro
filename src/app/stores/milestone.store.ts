@@ -1,49 +1,56 @@
 /**
  * milestone.store.ts
  *
- * Zustand store for net worth milestones and celebration state.
+ * Zustand store for the net worth milestone gamification system.
+ * Manages the celebration queue, trophy room, and journey timeline state.
  */
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import type { UUID } from '@/shared/types/common.types';
-import type {
-  NetWorthMilestone,
-  MilestoneThreshold,
-  MilestoneProgress,
-} from '@/shared/types/milestone.types';
+import type { AchievedMilestone } from '@/shared/types/milestone.types';
 import { milestoneStorage } from '@/services/storage/milestone.storage';
-import {
-  getProgressToNextMilestone,
-  getNextMilestone,
-} from '@/services/milestones/milestone.service';
+import { getMilestoneProgress, type MilestoneProgressData } from '@/services/milestones/milestone-config';
 
 // ---------------------------------------------------------------------------
-// State
+// State shape
 // ---------------------------------------------------------------------------
 
 type MilestoneState = {
-  milestones: NetWorthMilestone[];
-  unacknowledgedMilestones: NetWorthMilestone[];
-  /** The milestone currently shown in the full-screen overlay (login flow). */
-  pendingCelebration: NetWorthMilestone | null;
+  /** All achieved milestones for the current user */
+  achieved: AchievedMilestone[];
+  /** Milestones the user has not yet seen the celebration for */
+  unacknowledged: AchievedMilestone[];
+  /** Queue of milestones to celebrate (processed one at a time) */
+  celebrationQueue: AchievedMilestone[];
+  /** The milestone currently shown in the overlay */
+  activeCelebration: AchievedMilestone | null;
   isCelebrating: boolean;
-  /** Toast queue for milestones detected during app use (transaction flow). */
-  toastMilestones: NetWorthMilestone[];
-  isHistoryOpen: boolean;
-  nextMilestone: MilestoneThreshold | null;
-  milestoneProgress: MilestoneProgress | null;
+  isTrophyRoomOpen: boolean;
+  isJourneyOpen: boolean;
 };
 
 type MilestoneActions = {
   loadMilestones(userId: UUID): Promise<void>;
-  triggerCelebration(milestone: NetWorthMilestone): void;
-  acknowledgeCelebration(): Promise<void>;
-  loadNextMilestone(userId: UUID, currentNetWorth: number): Promise<void>;
-  openHistory(): void;
-  closeHistory(): void;
-  /** Add a milestone to the toast queue (transaction flow — during app use). */
-  addMilestoneToast(milestone: NetWorthMilestone): void;
-  /** Remove a milestone toast by ID after it has been dismissed. */
+  /**
+   * Add new milestones to the celebration queue.
+   * Automatically starts celebrating the first item if not already celebrating.
+   */
+  pushNewAchievements(items: AchievedMilestone[]): void;
+  /**
+   * Acknowledge the current celebration and advance to the next in queue.
+   */
+  advanceCelebration(): Promise<void>;
+  /**
+   * Acknowledge all queued celebrations at once.
+   */
+  skipAllCelebrations(userId: UUID): Promise<void>;
+  openTrophyRoom(): void;
+  closeTrophyRoom(): void;
+  openJourney(): void;
+  closeJourney(): void;
+  /** @deprecated Use pushNewAchievements instead */
+  addMilestoneToast(milestone: AchievedMilestone): void;
+  /** @deprecated No-op — dismiss is handled by advanceCelebration */
   dismissMilestoneToast(id: UUID): void;
 };
 
@@ -51,142 +58,206 @@ type MilestoneActions = {
 // Store
 // ---------------------------------------------------------------------------
 
-export const useMilestoneStore = create<MilestoneState & MilestoneActions>()((set, get) => ({
-  milestones: [],
-  unacknowledgedMilestones: [],
-  pendingCelebration: null,
-  isCelebrating: false,
-  toastMilestones: [],
-  isHistoryOpen: false,
-  nextMilestone: null,
-  milestoneProgress: null,
+export const useMilestoneStore = create<MilestoneState & MilestoneActions>()(
+  (set, get) => ({
+    achieved: [],
+    unacknowledged: [],
+    celebrationQueue: [],
+    activeCelebration: null,
+    isCelebrating: false,
+    isTrophyRoomOpen: false,
+    isJourneyOpen: false,
 
-  async loadMilestones(userId) {
-    const [allResult, unackedResult] = await Promise.all([
-      milestoneStorage.listMilestonesByUser(userId),
-      milestoneStorage.listUnacknowledgedMilestones(userId),
-    ]);
+    async loadMilestones(userId) {
+      const [allResult, unackedResult] = await Promise.all([
+        milestoneStorage.listAchievedByUser(userId),
+        milestoneStorage.listUnacknowledged(userId),
+      ]);
 
-    const milestones = allResult.success ? allResult.data : [];
-    const unacknowledged = unackedResult.success ? unackedResult.data : [];
+      const achieved = allResult.success ? allResult.data : [];
+      const unacknowledged = unackedResult.success ? unackedResult.data : [];
 
-    set({
-      milestones,
-      unacknowledgedMilestones: unacknowledged,
-      // Auto-set first unacknowledged as pending celebration
-      pendingCelebration: unacknowledged.length > 0 ? (unacknowledged[0] ?? null) : null,
-      isCelebrating: unacknowledged.length > 0,
-    });
-  },
+      set({
+        achieved,
+        unacknowledged,
+        // Prime the celebration queue with any unacknowledged items from a
+        // previous session (e.g. milestone reached while offline)
+        celebrationQueue: unacknowledged,
+        activeCelebration: unacknowledged.length > 0 ? (unacknowledged[0] ?? null) : null,
+        isCelebrating: unacknowledged.length > 0,
+      });
+    },
 
-  triggerCelebration(milestone) {
-    set({
-      pendingCelebration: milestone,
-      isCelebrating: true,
-    });
-  },
+    pushNewAchievements(items) {
+      set((state) => {
+        const newQueue = [
+          ...state.celebrationQueue,
+          ...items.filter(
+            (m) => !state.celebrationQueue.some((q) => q.id === m.id)
+          ),
+        ];
+        const isAlreadyCelebrating = state.isCelebrating;
+        return {
+          celebrationQueue: newQueue,
+          achieved: [
+            ...state.achieved,
+            ...items.filter((m) => !state.achieved.some((a) => a.id === m.id)),
+          ],
+          unacknowledged: [
+            ...state.unacknowledged,
+            ...items.filter(
+              (m) => !state.unacknowledged.some((u) => u.id === m.id)
+            ),
+          ],
+          activeCelebration:
+            isAlreadyCelebrating
+              ? state.activeCelebration
+              : (newQueue[0] ?? null),
+          isCelebrating: newQueue.length > 0,
+        };
+      });
+    },
 
-  async acknowledgeCelebration() {
-    const { pendingCelebration, unacknowledgedMilestones } = get();
-    if (!pendingCelebration) return;
+    async advanceCelebration() {
+      const { activeCelebration, celebrationQueue } = get();
+      if (!activeCelebration) return;
 
-    // Mark as acknowledged in IDB
-    await milestoneStorage.acknowledgeMilestone(pendingCelebration.id);
+      // Acknowledge current in IDB
+      await milestoneStorage.acknowledge(activeCelebration.id);
 
-    // Update in-memory acknowledged state
-    const updatedMilestones = get().milestones.map((m) =>
-      m.id === pendingCelebration.id ? { ...m, acknowledged: true } : m
-    );
-    const remainingUnacked = unacknowledgedMilestones.filter((m) => m.id !== pendingCelebration.id);
+      // Update in-memory acknowledged state
+      const updatedAchieved = get().achieved.map((m) =>
+        m.id === activeCelebration.id ? { ...m, acknowledged: true } : m
+      );
+      const remainingQueue = celebrationQueue.filter(
+        (m) => m.id !== activeCelebration.id
+      );
+      const remainingUnacked = get().unacknowledged.filter(
+        (m) => m.id !== activeCelebration.id
+      );
+      const nextCelebration = remainingQueue.length > 0 ? (remainingQueue[0] ?? null) : null;
 
-    const nextPending = remainingUnacked.length > 0 ? (remainingUnacked[0] ?? null) : null;
+      set({
+        achieved: updatedAchieved,
+        unacknowledged: remainingUnacked,
+        celebrationQueue: remainingQueue,
+        activeCelebration: nextCelebration,
+        isCelebrating: nextCelebration !== null,
+      });
+    },
 
-    set({
-      milestones: updatedMilestones,
-      unacknowledgedMilestones: remainingUnacked,
-      // Cycle to next unacknowledged after 300ms delay (caller manages timing)
-      pendingCelebration: nextPending,
-      isCelebrating: nextPending !== null,
-    });
-  },
+    async skipAllCelebrations(userId) {
+      await milestoneStorage.acknowledgeAll(userId);
+      const updatedAchieved = get().achieved.map((m) => ({
+        ...m,
+        acknowledged: true,
+      }));
+      set({
+        achieved: updatedAchieved,
+        unacknowledged: [],
+        celebrationQueue: [],
+        activeCelebration: null,
+        isCelebrating: false,
+      });
+    },
 
-  async loadNextMilestone(userId, currentNetWorth) {
-    const [progressResult, nextResult] = await Promise.all([
-      getProgressToNextMilestone(userId, currentNetWorth),
-      getNextMilestone(userId, currentNetWorth),
-    ]);
+    openTrophyRoom() {
+      set({ isTrophyRoomOpen: true });
+    },
+    closeTrophyRoom() {
+      set({ isTrophyRoomOpen: false });
+    },
+    openJourney() {
+      set({ isJourneyOpen: true });
+    },
+    closeJourney() {
+      set({ isJourneyOpen: false });
+    },
 
-    set({
-      milestoneProgress: progressResult.success ? progressResult.data : null,
-      nextMilestone: nextResult.success ? nextResult.data : null,
-    });
-  },
-
-  openHistory() {
-    set({ isHistoryOpen: true });
-  },
-
-  closeHistory() {
-    set({ isHistoryOpen: false });
-  },
-
-  addMilestoneToast(milestone) {
-    // Add to toast queue if not already present
-    set((state) => ({
-      toastMilestones: state.toastMilestones.some((m) => m.id === milestone.id)
-        ? state.toastMilestones
-        : [...state.toastMilestones, milestone],
-      milestones: state.milestones.some((m) => m.id === milestone.id)
-        ? state.milestones
-        : [milestone, ...state.milestones],
-      unacknowledgedMilestones: state.unacknowledgedMilestones.some((m) => m.id === milestone.id)
-        ? state.unacknowledgedMilestones
-        : [...state.unacknowledgedMilestones, milestone],
-    }));
-  },
-
-  dismissMilestoneToast(id) {
-    set((state) => ({
-      toastMilestones: state.toastMilestones.filter((m) => m.id !== id),
-    }));
-  },
-}));
+    // Backward compat aliases
+    addMilestoneToast(milestone) {
+      get().pushNewAchievements([milestone]);
+    },
+    dismissMilestoneToast(_id) {
+      // No-op — dismissal handled by advanceCelebration
+    },
+  })
+);
 
 // ---------------------------------------------------------------------------
 // Selectors
 // ---------------------------------------------------------------------------
 
+/**
+ * Celebration state — used by MilestoneCelebrationOverlay and AppLayout.
+ * Returns pendingCelebration as alias for activeCelebration for compat.
+ */
+export function useCelebration() {
+  const activeCelebration = useMilestoneStore((s) => s.activeCelebration);
+  const isCelebrating = useMilestoneStore((s) => s.isCelebrating);
+  const celebrationQueue = useMilestoneStore((s) => s.celebrationQueue);
+  const advanceCelebration = useMilestoneStore((s) => s.advanceCelebration);
+  const skipAllCelebrations = useMilestoneStore((s) => s.skipAllCelebrations);
+
+  return {
+    // pendingCelebration is an alias for activeCelebration (AppLayout compat)
+    pendingCelebration: activeCelebration,
+    activeCelebration,
+    isCelebrating,
+    celebrationQueue,
+    acknowledgeCelebration: advanceCelebration,
+    advanceCelebration,
+    skipAllCelebrations,
+  };
+}
+
+/**
+ * Computed live progress — pure calculation, no IDB.
+ */
+export function useMilestoneProgress(currentNetWorth: number): MilestoneProgressData {
+  return getMilestoneProgress(currentNetWorth);
+}
+
+/**
+ * Achievement data for trophy room and journey timeline.
+ */
 export function useMilestones() {
   return useMilestoneStore(
     useShallow((s) => ({
-      milestones: s.milestones,
-      unacknowledgedMilestones: s.unacknowledgedMilestones,
+      achieved: s.achieved,
+      unacknowledged: s.unacknowledged,
+      // Legacy alias
+      milestones: s.achieved,
+      unacknowledgedMilestones: s.unacknowledged,
     }))
   );
 }
 
-export function useCelebration() {
-  const pendingCelebration = useMilestoneStore((s) => s.pendingCelebration);
-  const isCelebrating = useMilestoneStore((s) => s.isCelebrating);
-  const acknowledgeCelebration = useMilestoneStore((s) => s.acknowledgeCelebration);
-  return { pendingCelebration, isCelebrating, acknowledgeCelebration };
-}
-
-export function useMilestoneProgress() {
+export function useTrophyRoom() {
   return useMilestoneStore(
     useShallow((s) => ({
-      nextMilestone: s.nextMilestone,
-      milestoneProgress: s.milestoneProgress,
+      isTrophyRoomOpen: s.isTrophyRoomOpen,
+      openTrophyRoom: s.openTrophyRoom,
+      closeTrophyRoom: s.closeTrophyRoom,
     }))
   );
 }
 
+export function useJourney() {
+  return useMilestoneStore(
+    useShallow((s) => ({
+      isJourneyOpen: s.isJourneyOpen,
+      openJourney: s.openJourney,
+      closeJourney: s.closeJourney,
+    }))
+  );
+}
+
+/** @deprecated Use useCelebration instead */
 export function useToastMilestones() {
-  return useMilestoneStore(
-    useShallow((s) => ({
-      toastMilestones: s.toastMilestones,
-      dismissMilestoneToast: s.dismissMilestoneToast,
-      triggerCelebration: s.triggerCelebration,
-    }))
-  );
+  return {
+    toastMilestones: [] as AchievedMilestone[],
+    dismissMilestoneToast: (_id: UUID) => undefined,
+    triggerCelebration: (_m: AchievedMilestone) => undefined,
+  };
 }
